@@ -19,8 +19,6 @@ pub trait ExecutionContext: std::fmt::Debug {
     fn name(&self) -> &str;
 
     fn plan(&self) -> &plan::Plan;
-
-    async fn sink_logs(&mut self, logs: Logs) -> Result<()>;
 }
 
 #[async_trait]

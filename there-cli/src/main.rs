@@ -1,6 +1,7 @@
 use anyhow::Result;
 use clap::{command, Arg, ArgAction};
 use tracing_subscriber::filter::LevelFilter;
+use tracing_subscriber::util::SubscriberInitExt;
 
 use crate::commands::Command;
 
@@ -39,6 +40,22 @@ async fn main() -> Result<()> {
                                 .long("file"),
                         ),
                 )
+                .subcommand(
+                    command!("apply")
+                        .about("Apply a plan.")
+                        .arg(
+                            Arg::new("file")
+                                .help("Path to the plan file. Skips the input prompt if provided.")
+                                .short('f')
+                                .long("file"),
+                        )
+                        .arg(
+                            Arg::new("dry")
+                                .help("Don't actually apply the plan, just show the changes it will make.")
+                                .short('d')
+                                .long("dry"),
+                        ),
+                )
         )
         .subcommand_required(true)
         .get_matches();
@@ -48,30 +65,27 @@ async fn main() -> Result<()> {
         .with_timer(tracing_subscriber::fmt::time::UtcTime::new(
             time::macros::format_description!("[year]-[month]-[day] [hour]:[minute]:[second]"),
         ))
-        .with_env_filter(
-            "debug,wasmer_compiler_cranelift=warn,cranelift_codegen=info,regalloc=info,clap=info",
-        )
-        .compact()
-        .with_span_events(tracing_subscriber::fmt::format::FmtSpan::NONE);
+        .with_span_events(tracing_subscriber::fmt::format::FmtSpan::NONE)
+        .compact();
 
     let quiet = matches.get_flag("quiet");
     let verbose = matches.get_count("verbose") as usize;
     let logging_config = if quiet && verbose == 0 {
-        logging_config.with_max_level(LevelFilter::INFO)
+        logging_config.with_max_level(LevelFilter::ERROR)
     } else if verbose > 0 {
         let level = match verbose {
-            1 => LevelFilter::DEBUG,
+            1 => LevelFilter::WARN,
+            2 => LevelFilter::INFO,
+            3 => LevelFilter::DEBUG,
             _ => LevelFilter::TRACE,
         };
-        // 2 is the INFO log level, which is the lowest possible level for
-        // verbosity.
         logging_config.with_max_level(level)
     } else {
-        logging_config.with_max_level(LevelFilter::INFO)
+        logging_config.with_max_level(LevelFilter::ERROR)
     };
 
     let subscriber = logging_config.finish();
-    tracing::subscriber::set_global_default(subscriber)?;
+    subscriber.init();
 
     // Run the commands
     if let Some((subcommand, matches)) = matches.subcommand() {
