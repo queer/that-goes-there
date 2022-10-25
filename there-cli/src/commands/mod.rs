@@ -7,6 +7,7 @@ use thiserror::Error;
 
 pub mod plan;
 
+#[allow(unused)]
 #[derive(Error, Debug)]
 pub enum CommandErrors {
     #[error("Name must be at least 5 characters and contain only lowercase letters, numbers, and dashes (got: {0}).")]
@@ -42,6 +43,7 @@ impl<'a> CliContext<'a> {
         }
     }
 
+    #[allow(unused)]
     pub fn with_matches(&self, matches: &'a ArgMatches) -> Self {
         Self {
             client: self.client.clone(),

@@ -146,7 +146,7 @@ impl PlannedTask {
         Ok(Self {
             name: name.into(),
             ensures: vec![Ensure::ExeExists { exe: head }],
-            command: split.clone(),
+            command: split,
         })
     }
 }
