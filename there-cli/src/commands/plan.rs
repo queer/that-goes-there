@@ -2,7 +2,7 @@ use super::Interactive;
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use clap::ArgMatches;
-use libthere::executor::{Executor, LogSource, self};
+use libthere::executor::{self, Executor, LogSource};
 use libthere::{log::*, plan};
 use tokio::fs::read_to_string;
 use tokio::sync::{mpsc, Mutex};
@@ -83,8 +83,7 @@ impl PlanCommand {
         });
 
         let executor = libthere::executor::simple::SimpleExecutor::new(&tx);
-        let mut context =
-            libthere::executor::simple::SimpleExecutionContext::new("test", plan);
+        let mut context = libthere::executor::simple::SimpleExecutionContext::new("test", plan);
         executor.execute(Mutex::new(&mut context)).await?;
         info!("finished applying plan");
         join_handle.await?;

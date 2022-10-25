@@ -46,26 +46,14 @@ impl TaskSet {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum Task {
-    Command {
-        name: String,
-        command: String,
-    },
-    CreateDirectory {
-        name: String,
-        path: String,
-    },
-    TouchFile {
-        name: String,
-        path: String,
-    },
+    Command { name: String, command: String },
+    CreateDirectory { name: String, path: String },
+    TouchFile { name: String, path: String },
 }
 
 impl Task {
     #[tracing::instrument]
-    pub async fn accept(
-        &mut self,
-        visitor: &mut dyn visitor::TaskVisitor<Out = ()>,
-    ) -> Result<()> {
+    pub async fn accept(&mut self, visitor: &mut dyn visitor::TaskVisitor<Out = ()>) -> Result<()> {
         visitor.visit_task(self)
     }
 
