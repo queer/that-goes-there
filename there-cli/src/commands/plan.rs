@@ -47,9 +47,16 @@ impl PlanCommand {
         let (plan, validation_errors) = plan.validate().await?;
 
         if validation_errors.is_empty() {
-            info!("applying plan...");
-            self.do_apply(plan, &()).await?;
-            info!("done!");
+            if *matches.get_one::<bool>("dry").unwrap() {
+                println!("*** plan: {} ***\n", plan.name());
+                for task in plan.blueprint() {
+                    println!("* {}: {}", task.name(), task.command().join(" "));
+                }
+            } else {
+                info!("applying plan...");
+                self.do_apply(plan, &()).await?;
+                info!("done!");
+            }
         } else {
             error!("Plan is invalid!");
             for error in validation_errors {

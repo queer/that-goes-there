@@ -53,7 +53,8 @@ async fn main() -> Result<()> {
                             Arg::new("dry")
                                 .help("Don't actually apply the plan, just show the changes it will make.")
                                 .short('d')
-                                .long("dry"),
+                                .long("dry")
+                                .action(ArgAction::SetTrue),
                         ),
                 )
         )
