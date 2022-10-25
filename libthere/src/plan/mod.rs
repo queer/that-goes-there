@@ -1,9 +1,12 @@
 use std::marker::PhantomData;
+use std::sync::Arc;
 
 use anyhow::Result;
 use derive_getters::Getters;
+use tokio::sync::Mutex;
 
-mod visitor;
+pub mod visitor;
+pub use visitor::{PlannedTaskVisitor, TaskVisitor};
 
 #[derive(Getters, Debug, Clone)]
 pub struct TaskSet<'a> {
@@ -38,9 +41,18 @@ impl<'a> TaskSet<'a> {
 
 #[derive(Debug, Clone)]
 pub enum Task<'a> {
-    Command { name: &'a str, command: Vec<&'a str> },
-    CreateDirectory { name: &'a str, path: &'a str },
-    TouchFile { name: &'a str, path: &'a str },
+    Command {
+        name: &'a str,
+        command: Vec<&'a str>,
+    },
+    CreateDirectory {
+        name: &'a str,
+        path: &'a str,
+    },
+    TouchFile {
+        name: &'a str,
+        path: &'a str,
+    },
     #[doc(hidden)]
     #[allow(non_camel_case_types)]
     __phantom(PhantomData<&'a ()>),
@@ -48,7 +60,10 @@ pub enum Task<'a> {
 
 impl<'a> Task<'a> {
     #[tracing::instrument]
-    pub async fn accept(&'a mut self, visitor: &mut dyn visitor::TaskVisitor<'a, Out = ()>) -> Result<()> {
+    pub async fn accept(
+        &'a mut self,
+        visitor: &mut dyn visitor::TaskVisitor<'a, Out = ()>,
+    ) -> Result<()> {
         visitor.visit_task(self)
     }
 }
@@ -65,17 +80,27 @@ impl<'a> Plan<'a> {
     }
 
     #[tracing::instrument]
-    pub async fn validate(&mut self) -> Result<Vec<anyhow::Error>> {
-        let mut visitor = visitor::EnsuringTaskVisitor::new();
-        let mut errors: Vec<anyhow::Error> = vec![];
+    pub async fn validate(&'a mut self) -> Result<(Plan<'a>, Vec<anyhow::Error>)> {
+        use std::ops::DerefMut;
+        use std::sync::Arc;
+        use tokio::sync::Mutex;
+
+        let me = self.clone();
+
+        let mut errors = vec![];
+
+        let mut visitor: Arc<Mutex<dyn visitor::PlannedTaskVisitor<'a, Out = Vec<anyhow::Error>>>> =
+            Arc::new(Mutex::new(visitor::EnsuringTaskVisitor::new()));
         for task in self.blueprint.iter_mut() {
-            let task_errors = task.accept(&mut visitor).await?;
+            let visitor = visitor.clone();
+            let mut visitor = visitor.lock().await;
+            let task_errors = task.accept(visitor.deref_mut()).await?;
             for err in task_errors {
                 errors.push(err);
             }
         }
 
-        Ok(errors)
+        Ok((me, errors))
     }
 }
 
@@ -87,12 +112,12 @@ pub struct PlannedTask<'a> {
 }
 
 impl<'a> PlannedTask<'a> {
-    #[tracing::instrument]
+    #[tracing::instrument(skip(visitor))]
     pub async fn accept(
-        &mut self,
-        visitor: &mut dyn visitor::PlannedTaskVisitor<Out = Vec<anyhow::Error>>,
+        &'a mut self,
+        visitor: &mut dyn visitor::PlannedTaskVisitor<'a, Out = Vec<anyhow::Error>>,
     ) -> Result<Vec<anyhow::Error>> {
-        visitor.visit_planned_task(self)
+        visitor.visit_planned_task(self).await
     }
 }
 
@@ -123,7 +148,7 @@ mod tests {
         assert_eq!("test", plan.blueprint()[0].name());
         assert_eq!("echo hello", plan.blueprint()[0].command().join(" "));
 
-        let errors = plan.validate().await?;
+        let (_, errors) = plan.validate().await?;
         assert!(errors.is_empty());
         Ok(())
     }
@@ -136,9 +161,12 @@ mod tests {
             command: vec!["doesnotexist", "hello"],
         });
         let mut plan = taskset.plan().await?;
-        let errors = plan.validate().await?;
+        let (_, errors) = plan.validate().await?;
         assert_eq!(1, errors.len());
-        assert_eq!("doesnotexist not found in $PATH".to_string(), format!("{}", errors[0]));
+        assert_eq!(
+            "doesnotexist not found in $PATH".to_string(),
+            format!("{}", errors[0])
+        );
         Ok(())
     }
 
@@ -150,7 +178,7 @@ mod tests {
             path: "./tmp/test.txt",
         });
         let mut plan = taskset.plan().await?;
-        let errors = plan.validate().await?;
+        let (_, errors) = plan.validate().await?;
         assert!(errors.is_empty());
         Ok(())
     }

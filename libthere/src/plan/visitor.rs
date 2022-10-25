@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use anyhow::{Context, Result};
+use async_trait::async_trait;
 use derive_getters::Getters;
 
 use super::{Ensure, PlannedTask, Task};
@@ -61,13 +62,14 @@ impl<'a> TaskVisitor<'a> for PlanningTaskVisitor<'a> {
     }
 }
 
-pub trait PlannedTaskVisitor: std::fmt::Debug {
+#[async_trait]
+pub trait PlannedTaskVisitor<'a> {
     type Out;
 
-    fn visit_planned_task(&mut self, task: &PlannedTask) -> Result<Self::Out>;
+    async fn visit_planned_task(&mut self, task: &'a PlannedTask<'a>) -> Result<Self::Out>;
 }
 
-#[derive(Getters, Debug, Clone)]
+#[derive(Getters, Debug, Clone, Default)]
 pub struct EnsuringTaskVisitor {}
 
 impl EnsuringTaskVisitor {
@@ -76,11 +78,12 @@ impl EnsuringTaskVisitor {
     }
 }
 
-impl PlannedTaskVisitor for EnsuringTaskVisitor {
+#[async_trait]
+impl<'a> PlannedTaskVisitor<'a> for EnsuringTaskVisitor {
     type Out = Vec<anyhow::Error>;
 
     #[tracing::instrument]
-    fn visit_planned_task(&mut self, task: &PlannedTask) -> Result<Self::Out> {
+    async fn visit_planned_task(&mut self, task: &'a PlannedTask<'a>) -> Result<Self::Out> {
         let mut errors: Vec<anyhow::Error> = vec![];
         for ensure in task.ensures() {
             match ensure {
