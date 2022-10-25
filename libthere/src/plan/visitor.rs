@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use derive_getters::Getters;
 
 use super::{Ensure, PlannedTask, Task};
+use crate::log::*;
 
 pub trait TaskVisitor<'a>: std::fmt::Debug {
     type Out;
@@ -32,14 +33,14 @@ impl<'a> TaskVisitor<'a> for PlanningTaskVisitor<'a> {
 
     #[tracing::instrument]
     fn visit_task(&mut self, task: &'a Task) -> Result<Self::Out> {
+        debug!("planning task visitor: visiting task: {}", &task.name());
+
         match task {
             Task::Command { name, command } => {
                 self.plan.push(PlannedTask {
                     name,
                     command: command.clone(),
-                    ensures: vec![Ensure::ExeExists {
-                        exe: command[0],
-                    }],
+                    ensures: vec![Ensure::ExeExists { exe: command[0] }],
                 });
             }
             Task::CreateDirectory { name, path } => {
@@ -58,6 +59,8 @@ impl<'a> TaskVisitor<'a> for PlanningTaskVisitor<'a> {
             }
             Task::__phantom(_) => unreachable!(),
         }
+
+        debug!("planning task visitor: finished planning task: {}", &task.name());
         Ok(())
     }
 }
@@ -84,8 +87,11 @@ impl<'a> PlannedTaskVisitor<'a> for EnsuringTaskVisitor {
 
     #[tracing::instrument]
     async fn visit_planned_task(&mut self, task: &'a PlannedTask<'a>) -> Result<Self::Out> {
+        let mut last_len = 0;
         let mut errors: Vec<anyhow::Error> = vec![];
         for ensure in task.ensures() {
+            debug!("ensuring task visitor: checking task: {}", &task.name());
+
             match ensure {
                 Ensure::ExeExists { exe } => {
                     let result = which::which(exe)
@@ -149,6 +155,9 @@ impl<'a> PlannedTaskVisitor<'a> for EnsuringTaskVisitor {
                     }
                 }
             }
+
+            debug!("ensuring task visitor: checking task: {}: found {} errors", &task.name(), errors.len() - last_len);
+            last_len = errors.len();
         }
         Ok(errors)
     }

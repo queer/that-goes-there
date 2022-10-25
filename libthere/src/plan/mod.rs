@@ -5,6 +5,8 @@ use anyhow::Result;
 use derive_getters::Getters;
 use tokio::sync::Mutex;
 
+use crate::log::*;
+
 pub mod visitor;
 pub use visitor::{PlannedTaskVisitor, TaskVisitor};
 
@@ -26,15 +28,18 @@ impl<'a> TaskSet<'a> {
 
     #[tracing::instrument]
     pub fn add_task(&mut self, task: Task<'a>) {
+        debug!("task set: added task to plan: {}", &task.name());
         self.tasks.push(task);
     }
 
     #[tracing::instrument]
     pub async fn plan(&'a mut self) -> Result<Plan> {
+        debug!("task set: planning tasks");
         let mut visitor = visitor::PlanningTaskVisitor::new(self.name.clone());
         for task in self.tasks.iter_mut() {
             task.accept(&mut visitor).await?;
         }
+        debug!("task set: finished planning tasks");
         Ok(Plan::new(self.name.clone(), visitor.plan().clone()))
     }
 }
@@ -66,6 +71,15 @@ impl<'a> Task<'a> {
     ) -> Result<()> {
         visitor.visit_task(self)
     }
+
+    pub fn name(&self) -> &'a str {
+        match self {
+            Task::Command { name, .. } => name,
+            Task::CreateDirectory { name, .. } => name,
+            Task::TouchFile { name, .. } => name,
+            _ => "<unknown>",
+        }
+    }
 }
 
 #[derive(Getters, Debug, Clone)]
@@ -86,18 +100,27 @@ impl<'a> Plan<'a> {
         use tokio::sync::Mutex;
 
         let me = self.clone();
+        debug!("plan: validating plan: {}", &self.name());
 
         let mut errors = vec![];
 
         let mut visitor: Arc<Mutex<dyn visitor::PlannedTaskVisitor<'a, Out = Vec<anyhow::Error>>>> =
             Arc::new(Mutex::new(visitor::EnsuringTaskVisitor::new()));
         for task in self.blueprint.iter_mut() {
+            // TODO: ugh
+            let fake_task = task.clone();
+            let name = fake_task.name();
+            
+            debug!("plan: validating task: {}", &name);
             let visitor = visitor.clone();
             let mut visitor = visitor.lock().await;
             let task_errors = task.accept(visitor.deref_mut()).await?;
+            let mut counter = 0;
             for err in task_errors {
+                counter += 1;
                 errors.push(err);
             }
+            debug!("plan: validating task: {}: {} errors", &name, counter);
         }
 
         Ok((me, errors))

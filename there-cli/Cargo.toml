@@ -6,3 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+libthere = { path = "../libthere" }
+
+tokio = { version = "1.21.2", features = ["full"] }
+tracing-futures = { version = "0.2.5", features = ["tokio"] }

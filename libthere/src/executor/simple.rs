@@ -8,6 +8,7 @@ use derive_getters::Getters;
 use tokio::sync::{Mutex, mpsc};
 
 use super::{ExecutionContext, Executor, Logs, LogSink, LogSource};
+use crate::log::*;
 use crate::plan;
 
 pub type SimpleLogTx<'a> = mpsc::Sender<Logs>;
@@ -35,7 +36,7 @@ impl<'a> SimpleExecutor<'a> {
         use tokio_stream::StreamExt;
         use tokio_util::codec::{BytesCodec, FramedRead};
 
-        println!("*** executing task: {}", task.name());
+        info!("*** executing task: {}", task.name());
         let cmd = task.command()[0];
         let args = task.command()[1..].to_vec();
 
@@ -53,7 +54,7 @@ impl<'a> SimpleExecutor<'a> {
         while let Ok(None) = child.try_wait() {
             tokio::select! {
                 _ = child.wait() => {
-                    println!("*** task '{}' finished", task.name());
+                    info!("*** task '{}' finished", task.name());
                     break;
                 }
                 stdout = stdout.next() => {
@@ -83,6 +84,7 @@ impl<'a> Executor<SimpleExecutionContext<'a>> for SimpleExecutor<'a> {
         let mut ctx = ctx.lock().await;
         let clone = ctx.clone();
         for task in ctx.plan.blueprint().iter() {
+            debug!("simple executor: executing task: {}", task.name());
             self.execute_task(task, &mut clone.clone()).await?;
         }
         Ok(())
@@ -119,6 +121,7 @@ impl<'a> ExecutionContext for SimpleExecutionContext<'a> {
 
     #[tracing::instrument]
     async fn sink_logs(&mut self, logs: Logs) -> Result<()> {
+        debug!("simple execution context: sinking {} logs", logs.len());
         self.log_sink.lock().await.sink(logs).await
     }
 }
@@ -138,6 +141,7 @@ impl SimpleLogSink {
 impl LogSink for SimpleLogSink {
     #[tracing::instrument]
     async fn sink(&mut self, logs: Logs) -> Result<()> {
+        debug!("simple log sink: sinking {} logs", logs.len());
         self.tx.send(logs).await.context("Failed sending logs")?;
         Ok(())
     }
@@ -158,6 +162,7 @@ impl SimpleLogSource {
 impl LogSource for SimpleLogSource {
     #[tracing::instrument]
     async fn source(&mut self) -> Result<Logs> {
+        debug!("simple log source: sourcing logs");
         let mut out = vec![];
         loop {
             match self.rx.try_recv() {
@@ -172,6 +177,7 @@ impl LogSource for SimpleLogSource {
                 }
             }
         }
+        debug!("simple log source: sourced {} logs", &out.len());
         Ok(out)
     }
 }
