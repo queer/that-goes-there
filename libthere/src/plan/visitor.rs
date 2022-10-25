@@ -5,19 +5,19 @@ use derive_getters::Getters;
 
 use super::{Ensure, PlannedTask, Task};
 
-pub trait TaskVisitor: std::fmt::Debug {
+pub trait TaskVisitor<'a>: std::fmt::Debug {
     type Out;
 
-    fn visit_task(&mut self, task: &Task) -> Result<Self::Out>;
+    fn visit_task(&mut self, task: &'a Task) -> Result<Self::Out>;
 }
 
 #[derive(Getters, Debug, Clone)]
-pub struct PlanningTaskVisitor {
+pub struct PlanningTaskVisitor<'a> {
     name: String,
-    plan: Vec<PlannedTask>,
+    plan: Vec<PlannedTask<'a>>,
 }
 
-impl PlanningTaskVisitor {
+impl<'a> PlanningTaskVisitor<'a> {
     pub fn new(name: String) -> Self {
         Self {
             name,
@@ -26,35 +26,36 @@ impl PlanningTaskVisitor {
     }
 }
 
-impl TaskVisitor for PlanningTaskVisitor {
+impl<'a> TaskVisitor<'a> for PlanningTaskVisitor<'a> {
     type Out = ();
 
     #[tracing::instrument]
-    fn visit_task(&mut self, task: &Task) -> Result<Self::Out> {
+    fn visit_task(&mut self, task: &'a Task) -> Result<Self::Out> {
         match task {
             Task::Command { name, command } => {
                 self.plan.push(PlannedTask {
-                    name: name.clone(),
+                    name,
                     command: command.clone(),
                     ensures: vec![Ensure::ExeExists {
-                        exe: command[0].clone(),
+                        exe: command[0],
                     }],
                 });
             }
             Task::CreateDirectory { name, path } => {
                 self.plan.push(PlannedTask {
-                    name: name.clone(),
-                    command: vec!["mkdir".into(), "-pv".into(), path.clone()],
-                    ensures: vec![Ensure::DirectoryExists { path: path.clone() }],
+                    name,
+                    command: vec!["mkdir", path],
+                    ensures: vec![Ensure::DirectoryExists { path }],
                 });
             }
             Task::TouchFile { name, path } => {
                 self.plan.push(PlannedTask {
-                    name: name.clone(),
-                    command: vec!["touch".into(), path.clone()],
-                    ensures: vec![Ensure::ExeExists { exe: "touch".into() }],
+                    name,
+                    command: vec!["touch", path],
+                    ensures: vec![Ensure::ExeExists { exe: "touch" }],
                 });
             }
+            Task::__phantom(_) => unreachable!(),
         }
         Ok(())
     }

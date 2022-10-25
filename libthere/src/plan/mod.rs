@@ -1,43 +1,33 @@
+use std::marker::PhantomData;
+
 use anyhow::Result;
 use derive_getters::Getters;
 
 mod visitor;
 
 #[derive(Getters, Debug, Clone)]
-pub struct TaskSet {
+pub struct TaskSet<'a> {
     name: String,
-    tasks: Vec<Task>,
+    tasks: Vec<Task<'a>>,
+    _phantom: PhantomData<&'a ()>,
 }
 
-#[derive(Debug, Clone)]
-pub enum Task {
-    Command { name: String, command: Vec<String> },
-    CreateDirectory { name: String, path: String },
-    TouchFile { name: String, path: String },
-}
-
-impl Task {
-    #[tracing::instrument]
-    pub async fn accept(&mut self, visitor: &mut dyn visitor::TaskVisitor<Out = ()>) -> Result<()> {
-        visitor.visit_task(self)
-    }
-}
-
-impl TaskSet {
+impl<'a> TaskSet<'a> {
     pub fn new<S: Into<String>>(name: S) -> Self {
         Self {
             name: name.into(),
             tasks: Vec::new(),
+            _phantom: PhantomData,
         }
     }
 
     #[tracing::instrument]
-    pub fn add_task(&mut self, task: Task) {
+    pub fn add_task(&mut self, task: Task<'a>) {
         self.tasks.push(task);
     }
 
     #[tracing::instrument]
-    pub async fn plan(&mut self) -> Result<Plan> {
+    pub async fn plan(&'a mut self) -> Result<Plan> {
         let mut visitor = visitor::PlanningTaskVisitor::new(self.name.clone());
         for task in self.tasks.iter_mut() {
             task.accept(&mut visitor).await?;
@@ -46,14 +36,31 @@ impl TaskSet {
     }
 }
 
-#[derive(Getters, Debug, Clone)]
-pub struct Plan {
-    name: String,
-    blueprint: Vec<PlannedTask>,
+#[derive(Debug, Clone)]
+pub enum Task<'a> {
+    Command { name: &'a str, command: Vec<&'a str> },
+    CreateDirectory { name: &'a str, path: &'a str },
+    TouchFile { name: &'a str, path: &'a str },
+    #[doc(hidden)]
+    #[allow(non_camel_case_types)]
+    __phantom(PhantomData<&'a ()>),
 }
 
-impl Plan {
-    pub fn new(name: String, blueprint: Vec<PlannedTask>) -> Self {
+impl<'a> Task<'a> {
+    #[tracing::instrument]
+    pub async fn accept(&'a mut self, visitor: &mut dyn visitor::TaskVisitor<'a, Out = ()>) -> Result<()> {
+        visitor.visit_task(self)
+    }
+}
+
+#[derive(Getters, Debug, Clone)]
+pub struct Plan<'a> {
+    name: String,
+    blueprint: Vec<PlannedTask<'a>>,
+}
+
+impl<'a> Plan<'a> {
+    pub fn new(name: String, blueprint: Vec<PlannedTask<'a>>) -> Self {
         Self { name, blueprint }
     }
 
@@ -73,13 +80,13 @@ impl Plan {
 }
 
 #[derive(Getters, Debug, Clone)]
-pub struct PlannedTask {
-    name: String,
-    command: Vec<String>,
-    ensures: Vec<Ensure>,
+pub struct PlannedTask<'a> {
+    name: &'a str,
+    command: Vec<&'a str>,
+    ensures: Vec<Ensure<'a>>,
 }
 
-impl PlannedTask {
+impl<'a> PlannedTask<'a> {
     #[tracing::instrument]
     pub async fn accept(
         &mut self,
@@ -90,12 +97,12 @@ impl PlannedTask {
 }
 
 #[derive(Debug, Clone)]
-pub enum Ensure {
-    FileExists { path: String },
-    DirectoryExists { path: String },
-    FileDoesntExist { path: String },
-    DirectoryDoesntExist { path: String },
-    ExeExists { exe: String },
+pub enum Ensure<'a> {
+    FileExists { path: &'a str },
+    DirectoryExists { path: &'a str },
+    FileDoesntExist { path: &'a str },
+    DirectoryDoesntExist { path: &'a str },
+    ExeExists { exe: &'a str },
 }
 
 #[cfg(test)]
@@ -108,8 +115,8 @@ mod tests {
     async fn test_that_tasks_can_be_planned() -> Result<()> {
         let mut taskset = TaskSet::new("test");
         taskset.add_task(Task::Command {
-            name: "test".to_string(),
-            command: vec!["echo".to_string(), "hello".to_string()],
+            name: "test",
+            command: vec!["echo", "hello"],
         });
         let mut plan = taskset.plan().await?;
         assert_eq!(1, plan.blueprint().len());
@@ -125,8 +132,8 @@ mod tests {
     async fn test_that_tasks_without_valid_executables_fail_planning() -> Result<()> {
         let mut taskset = TaskSet::new("test");
         taskset.add_task(Task::Command {
-            name: "test".to_string(),
-            command: vec!["doesnotexist".to_string(), "hello".to_string()],
+            name: "test",
+            command: vec!["doesnotexist", "hello"],
         });
         let mut plan = taskset.plan().await?;
         let errors = plan.validate().await?;
@@ -139,8 +146,8 @@ mod tests {
     async fn test_that_touch_file_tasks_pass_validation() -> Result<()> {
         let mut taskset = TaskSet::new("test");
         taskset.add_task(Task::TouchFile {
-            name: "test".to_string(),
-            path: "./tmp/test.txt".to_string(),
+            name: "test",
+            path: "./tmp/test.txt",
         });
         let mut plan = taskset.plan().await?;
         let errors = plan.validate().await?;
