@@ -22,6 +22,7 @@ jobs:
         with:
           toolchain: "${{ matrix.version }}"
           override: true
+          components: "clippy"
       - uses: "Swatinem/rust-cache@v1"
         with:
           key: "clippy"
