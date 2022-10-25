@@ -16,7 +16,7 @@ pub enum Task {
 }
 
 impl Task {
-    pub fn accept(&mut self, visitor: &mut dyn visitor::TaskVisitor<Out = ()>) -> Result<()> {
+    pub async fn accept(&mut self, visitor: &mut dyn visitor::TaskVisitor<Out = ()>) -> Result<()> {
         visitor.visit_task(self)
     }
 }
@@ -33,10 +33,10 @@ impl TaskSet {
         self.tasks.push(task);
     }
 
-    pub fn plan(&mut self) -> Result<Plan> {
+    pub async fn plan(&mut self) -> Result<Plan> {
         let mut visitor = visitor::PlanningTaskVisitor::new(self.name.clone());
         for task in self.tasks.iter_mut() {
-            task.accept(&mut visitor)?;
+            task.accept(&mut visitor).await?;
         }
         Ok(Plan::new(self.name.clone(), visitor.plan().clone()))
     }
@@ -53,11 +53,11 @@ impl Plan {
         Self { name, blueprint }
     }
 
-    pub fn validate(&mut self) -> Result<Vec<anyhow::Error>> {
+    pub async fn validate(&mut self) -> Result<Vec<anyhow::Error>> {
         let mut visitor = visitor::EnsuringTaskVisitor::new();
         let mut errors: Vec<anyhow::Error> = vec![];
         for task in self.blueprint.iter_mut() {
-            let task_errors = task.accept(&mut visitor)?;
+            let task_errors = task.accept(&mut visitor).await?;
             for err in task_errors {
                 errors.push(err);
             }
@@ -75,7 +75,7 @@ pub struct PlannedTask {
 }
 
 impl PlannedTask {
-    pub fn accept(
+    pub async fn accept(
         &mut self,
         visitor: &mut dyn visitor::PlannedTaskVisitor<Out = Vec<anyhow::Error>>,
     ) -> Result<Vec<anyhow::Error>> {
@@ -96,31 +96,31 @@ pub enum Ensure {
 mod tests {
     use super::{Task, TaskSet};
 
-    #[test]
-    fn test_that_tasks_can_be_planned() {
+    #[tokio::test]
+    async fn test_that_tasks_can_be_planned() {
         let mut taskset = TaskSet::new("test".to_string());
         taskset.add_task(Task::Command {
             name: "test".to_string(),
             command: vec!["echo".to_string(), "hello".to_string()],
         });
-        let mut plan = taskset.plan().unwrap();
+        let mut plan = taskset.plan().await.unwrap();
         assert_eq!(1, plan.blueprint().len());
         assert_eq!("test", plan.blueprint()[0].name());
         assert_eq!("echo hello", plan.blueprint()[0].command().join(" "));
 
-        let errors = plan.validate().unwrap();
+        let errors = plan.validate().await.unwrap();
         assert!(errors.is_empty());
     }
 
-    #[test]
-    fn test_that_tasks_without_valid_executables_fail_planning() {
+    #[tokio::test]
+    async fn test_that_tasks_without_valid_executables_fail_planning() {
         let mut taskset = TaskSet::new("test".to_string());
         taskset.add_task(Task::Command {
             name: "test".to_string(),
             command: vec!["doesnotexist".to_string(), "hello".to_string()],
         });
-        let mut plan = taskset.plan().unwrap();
-        let errors = plan.validate().unwrap();
+        let mut plan = taskset.plan().await.unwrap();
+        let errors = plan.validate().await.unwrap();
         assert_eq!(1, errors.len());
         assert_eq!("doesnotexist not found in $PATH".to_string(), format!("{}", errors[0]));
     }
