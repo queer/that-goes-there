@@ -5,8 +5,9 @@ use derive_getters::Getters;
 
 use super::{Ensure, PlannedTask, Task};
 
-pub trait TaskVisitor {
+pub trait TaskVisitor: std::fmt::Debug {
     type Out;
+
     fn visit_task(&mut self, task: &Task) -> Result<Self::Out>;
 }
 
@@ -28,6 +29,7 @@ impl PlanningTaskVisitor {
 impl TaskVisitor for PlanningTaskVisitor {
     type Out = ();
 
+    #[tracing::instrument]
     fn visit_task(&mut self, task: &Task) -> Result<Self::Out> {
         match task {
             Task::Command { name, command } => {
@@ -42,8 +44,15 @@ impl TaskVisitor for PlanningTaskVisitor {
             Task::CreateDirectory { name, path } => {
                 self.plan.push(PlannedTask {
                     name: name.clone(),
-                    command: vec!["mkdir".to_string(), "-pv".to_string(), path.clone()],
+                    command: vec!["mkdir".into(), "-pv".into(), path.clone()],
                     ensures: vec![Ensure::DirectoryExists { path: path.clone() }],
+                });
+            }
+            Task::TouchFile { name, path } => {
+                self.plan.push(PlannedTask {
+                    name: name.clone(),
+                    command: vec!["touch".into(), path.clone()],
+                    ensures: vec![Ensure::ExeExists { exe: "touch".into() }],
                 });
             }
         }
@@ -51,12 +60,14 @@ impl TaskVisitor for PlanningTaskVisitor {
     }
 }
 
-pub trait PlannedTaskVisitor {
+pub trait PlannedTaskVisitor: std::fmt::Debug {
     type Out;
+
     fn visit_planned_task(&mut self, task: &PlannedTask) -> Result<Self::Out>;
 }
 
-pub struct EnsuringTaskVisitor;
+#[derive(Getters, Debug, Clone)]
+pub struct EnsuringTaskVisitor {}
 
 impl EnsuringTaskVisitor {
     pub fn new() -> Self {
@@ -67,6 +78,7 @@ impl EnsuringTaskVisitor {
 impl PlannedTaskVisitor for EnsuringTaskVisitor {
     type Out = Vec<anyhow::Error>;
 
+    #[tracing::instrument]
     fn visit_planned_task(&mut self, task: &PlannedTask) -> Result<Self::Out> {
         let mut errors: Vec<anyhow::Error> = vec![];
         for ensure in task.ensures() {
