@@ -15,19 +15,17 @@ pub type SimpleLogTx<'a> = mpsc::Sender<Logs>;
 pub type SimpleLogRx<'a> = mpsc::Receiver<Logs>;
 
 #[derive(Getters, Debug, Clone, Default)]
-pub struct SimpleExecutor<'a> {
-    _phantom: PhantomData<&'a ()>,
+pub struct SimpleExecutor {
 }
 
-impl<'a> SimpleExecutor<'a> {
+impl SimpleExecutor {
     pub fn new() -> Self {
         Self {
-            _phantom: PhantomData,
         }
     }
 
     #[tracing::instrument(skip(self))]
-    async fn execute_task(&self, task: &'a plan::PlannedTask<'a>, ctx: &'a mut SimpleExecutionContext<'a>) -> Result<()> {
+    async fn execute_task(&self, task: &plan::PlannedTask, ctx: &mut SimpleExecutionContext) -> Result<()> {
         use std::ops::Deref;
         use std::process::Stdio;
 
@@ -37,7 +35,7 @@ impl<'a> SimpleExecutor<'a> {
         use tokio_util::codec::{BytesCodec, FramedRead};
 
         info!("*** executing task: {}", task.name());
-        let cmd = task.command()[0];
+        let cmd = &task.command()[0];
         let args = task.command()[1..].to_vec();
 
         let mut child = Command::new(cmd)
@@ -77,9 +75,9 @@ impl<'a> SimpleExecutor<'a> {
 }
 
 #[async_trait]
-impl<'a> Executor<SimpleExecutionContext<'a>> for SimpleExecutor<'a> {
+impl Executor<SimpleExecutionContext> for SimpleExecutor {
     #[tracing::instrument]
-    async fn execute(&self, ctx: Mutex<&mut SimpleExecutionContext<'a>>) -> Result<()> {
+    async fn execute(&self, ctx: Mutex<&mut SimpleExecutionContext>) -> Result<()> {
         // TODO: What to do about all this cloning? ;-;
         let mut ctx = ctx.lock().await;
         let clone = ctx.clone();
@@ -92,15 +90,15 @@ impl<'a> Executor<SimpleExecutionContext<'a>> for SimpleExecutor<'a> {
 }
 
 #[derive(Getters, Debug, Clone)]
-pub struct SimpleExecutionContext<'a> {
+pub struct SimpleExecutionContext {
     name: String,
-    plan: &'a plan::Plan<'a>,
+    plan: plan::Plan,
     #[getter(skip)]
     log_sink: Arc<Mutex<SimpleLogSink>>,
 }
 
-impl<'a> SimpleExecutionContext<'a> {
-    pub fn new<S: Into<String>>(name: S, plan: &'a plan::Plan<'a>, tx: SimpleLogTx<'a>) -> Self {
+impl SimpleExecutionContext {
+    pub fn new<S: Into<String>>(name: S, plan: plan::Plan, tx: SimpleLogTx) -> Self {
         Self {
             name: name.into(),
             log_sink: Arc::new(Mutex::new(SimpleLogSink::new(tx))),
@@ -110,13 +108,13 @@ impl<'a> SimpleExecutionContext<'a> {
 }
 
 #[async_trait]
-impl<'a> ExecutionContext for SimpleExecutionContext<'a> {
+impl ExecutionContext for SimpleExecutionContext {
     fn name(&self) -> &str {
         &self.name
     }
 
     fn plan(&self) -> &plan::Plan {
-        self.plan
+        &self.plan
     }
 
     #[tracing::instrument]
@@ -197,13 +195,13 @@ mod test {
 
         let mut taskset = TaskSet::new("test");
         taskset.add_task(Task::Command {
-            name: "test",
-            command: vec!["echo", "hello"],
+            name: "test".into(),
+            command: "echo 'hello'".into(),
         });
         let mut plan = taskset.plan().await?;
         let (plan, errors) = plan.validate().await?;
         assert!(errors.is_empty());
-        let mut ctx = SimpleExecutionContext::new("test", &plan, tx);
+        let mut ctx = SimpleExecutionContext::new("test", plan, tx);
         let mut executor = SimpleExecutor::new();
         executor.execute(Mutex::new(&mut ctx)).await?;
         let logs = log_source.source().await?;

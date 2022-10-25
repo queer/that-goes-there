@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use derive_getters::Getters;
+use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 
 use crate::log::*;
@@ -10,30 +11,28 @@ use crate::log::*;
 pub mod visitor;
 pub use visitor::{PlannedTaskVisitor, TaskVisitor};
 
-#[derive(Getters, Debug, Clone)]
-pub struct TaskSet<'a> {
+#[derive(Getters, Debug, Clone, Serialize, Deserialize)]
+pub struct TaskSet {
     name: String,
-    tasks: Vec<Task<'a>>,
-    _phantom: PhantomData<&'a ()>,
+    tasks: Vec<Task>,
 }
 
-impl<'a> TaskSet<'a> {
+impl TaskSet {
     pub fn new<S: Into<String>>(name: S) -> Self {
         Self {
             name: name.into(),
             tasks: Vec::new(),
-            _phantom: PhantomData,
         }
     }
 
     #[tracing::instrument]
-    pub fn add_task(&mut self, task: Task<'a>) {
+    pub fn add_task(&mut self, task: Task) {
         debug!("task set: added task to plan: {}", &task.name());
         self.tasks.push(task);
     }
 
     #[tracing::instrument]
-    pub async fn plan(&'a mut self) -> Result<Plan> {
+    pub async fn plan(&mut self) -> Result<Plan> {
         debug!("task set: planning tasks");
         let mut visitor = visitor::PlanningTaskVisitor::new(self.name.clone());
         for task in self.tasks.iter_mut() {
@@ -44,35 +43,33 @@ impl<'a> TaskSet<'a> {
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum Task<'a> {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum Task {
     Command {
-        name: &'a str,
-        command: Vec<&'a str>,
+        name: String,
+        command: String,
     },
     CreateDirectory {
-        name: &'a str,
-        path: &'a str,
+        name: String,
+        path: String,
     },
     TouchFile {
-        name: &'a str,
-        path: &'a str,
+        name: String,
+        path: String,
     },
-    #[doc(hidden)]
-    #[allow(non_camel_case_types)]
-    __phantom(PhantomData<&'a ()>),
 }
 
-impl<'a> Task<'a> {
+impl Task {
     #[tracing::instrument]
     pub async fn accept(
-        &'a mut self,
-        visitor: &mut dyn visitor::TaskVisitor<'a, Out = ()>,
+        &mut self,
+        visitor: &mut dyn visitor::TaskVisitor<Out = ()>,
     ) -> Result<()> {
         visitor.visit_task(self)
     }
 
-    pub fn name(&self) -> &'a str {
+    pub fn name(&self) -> &str {
         match self {
             Task::Command { name, .. } => name,
             Task::CreateDirectory { name, .. } => name,
@@ -82,19 +79,19 @@ impl<'a> Task<'a> {
     }
 }
 
-#[derive(Getters, Debug, Clone)]
-pub struct Plan<'a> {
+#[derive(Getters, Debug, Clone, Deserialize, Serialize)]
+pub struct Plan {
     name: String,
-    blueprint: Vec<PlannedTask<'a>>,
+    blueprint: Vec<PlannedTask>,
 }
 
-impl<'a> Plan<'a> {
-    pub fn new(name: String, blueprint: Vec<PlannedTask<'a>>) -> Self {
+impl Plan {
+    pub fn new(name: String, blueprint: Vec<PlannedTask>) -> Self {
         Self { name, blueprint }
     }
 
     #[tracing::instrument]
-    pub async fn validate(&'a mut self) -> Result<(Plan<'a>, Vec<anyhow::Error>)> {
+    pub async fn validate(&mut self) -> Result<(Plan, Vec<anyhow::Error>)> {
         use std::ops::DerefMut;
         use std::sync::Arc;
         use tokio::sync::Mutex;
@@ -104,13 +101,13 @@ impl<'a> Plan<'a> {
 
         let mut errors = vec![];
 
-        let mut visitor: Arc<Mutex<dyn visitor::PlannedTaskVisitor<'a, Out = Vec<anyhow::Error>>>> =
+        let mut visitor: Arc<Mutex<dyn visitor::PlannedTaskVisitor<Out = Vec<anyhow::Error>>>> =
             Arc::new(Mutex::new(visitor::EnsuringTaskVisitor::new()));
         for task in self.blueprint.iter_mut() {
             // TODO: ugh
             let fake_task = task.clone();
             let name = fake_task.name();
-            
+
             debug!("plan: validating task: {}", &name);
             let visitor = visitor.clone();
             let mut visitor = visitor.lock().await;
@@ -127,30 +124,40 @@ impl<'a> Plan<'a> {
     }
 }
 
-#[derive(Getters, Debug, Clone)]
-pub struct PlannedTask<'a> {
-    name: &'a str,
-    command: Vec<&'a str>,
-    ensures: Vec<Ensure<'a>>,
+#[derive(Getters, Debug, Clone, Deserialize, Serialize)]
+pub struct PlannedTask {
+    name: String,
+    command: Vec<String>,
+    ensures: Vec<Ensure>,
 }
 
-impl<'a> PlannedTask<'a> {
+impl PlannedTask {
     #[tracing::instrument(skip(visitor))]
     pub async fn accept(
-        &'a mut self,
-        visitor: &mut dyn visitor::PlannedTaskVisitor<'a, Out = Vec<anyhow::Error>>,
+        &mut self,
+        visitor: &mut dyn visitor::PlannedTaskVisitor<Out = Vec<anyhow::Error>>,
     ) -> Result<Vec<anyhow::Error>> {
         visitor.visit_planned_task(self).await
     }
+
+    pub fn from_shell_command<S: Into<String>>(name: S, command: S) -> Result<Self> {
+        let split = shell_words::split(command.into().as_str())?;
+        let head = split[0].clone();
+        Ok(Self {
+            name: name.into(),
+            ensures: vec![Ensure::ExeExists { exe: head }],
+            command: split.clone(),
+        })
+    }
 }
 
-#[derive(Debug, Clone)]
-pub enum Ensure<'a> {
-    FileExists { path: &'a str },
-    DirectoryExists { path: &'a str },
-    FileDoesntExist { path: &'a str },
-    DirectoryDoesntExist { path: &'a str },
-    ExeExists { exe: &'a str },
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub enum Ensure {
+    FileExists { path: String },
+    DirectoryExists { path: String },
+    FileDoesntExist { path: String },
+    DirectoryDoesntExist { path: String },
+    ExeExists { exe: String },
 }
 
 #[cfg(test)]
@@ -163,8 +170,8 @@ mod tests {
     async fn test_that_tasks_can_be_planned() -> Result<()> {
         let mut taskset = TaskSet::new("test");
         taskset.add_task(Task::Command {
-            name: "test",
-            command: vec!["echo", "hello"],
+            name: "test".into(),
+            command: "echo hello".into(),
         });
         let mut plan = taskset.plan().await?;
         assert_eq!(1, plan.blueprint().len());
@@ -180,8 +187,8 @@ mod tests {
     async fn test_that_tasks_without_valid_executables_fail_planning() -> Result<()> {
         let mut taskset = TaskSet::new("test");
         taskset.add_task(Task::Command {
-            name: "test",
-            command: vec!["doesnotexist", "hello"],
+            name: "test".into(),
+            command: "doesnotexist".into(),
         });
         let mut plan = taskset.plan().await?;
         let (_, errors) = plan.validate().await?;
@@ -197,8 +204,8 @@ mod tests {
     async fn test_that_touch_file_tasks_pass_validation() -> Result<()> {
         let mut taskset = TaskSet::new("test");
         taskset.add_task(Task::TouchFile {
-            name: "test",
-            path: "./tmp/test.txt",
+            name: "test".into(),
+            path: "./tmp/test.txt".into(),
         });
         let mut plan = taskset.plan().await?;
         let (_, errors) = plan.validate().await?;

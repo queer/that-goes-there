@@ -7,19 +7,19 @@ use derive_getters::Getters;
 use super::{Ensure, PlannedTask, Task};
 use crate::log::*;
 
-pub trait TaskVisitor<'a>: std::fmt::Debug {
+pub trait TaskVisitor: Send + std::fmt::Debug {
     type Out;
 
-    fn visit_task(&mut self, task: &'a Task) -> Result<Self::Out>;
+    fn visit_task(&mut self, task: &Task) -> Result<Self::Out>;
 }
 
 #[derive(Getters, Debug, Clone)]
-pub struct PlanningTaskVisitor<'a> {
+pub struct PlanningTaskVisitor {
     name: String,
-    plan: Vec<PlannedTask<'a>>,
+    plan: Vec<PlannedTask>,
 }
 
-impl<'a> PlanningTaskVisitor<'a> {
+impl PlanningTaskVisitor {
     pub fn new(name: String) -> Self {
         Self {
             name,
@@ -28,48 +28,50 @@ impl<'a> PlanningTaskVisitor<'a> {
     }
 }
 
-impl<'a> TaskVisitor<'a> for PlanningTaskVisitor<'a> {
+impl TaskVisitor for PlanningTaskVisitor {
     type Out = ();
 
     #[tracing::instrument]
-    fn visit_task(&mut self, task: &'a Task) -> Result<Self::Out> {
+    fn visit_task(&mut self, task: &Task) -> Result<Self::Out> {
         debug!("planning task visitor: visiting task: {}", &task.name());
 
         match task {
             Task::Command { name, command } => {
-                self.plan.push(PlannedTask {
-                    name,
-                    command: command.clone(),
-                    ensures: vec![Ensure::ExeExists { exe: command[0] }],
-                });
+                let mut final_command = vec![];
+                for shell_word in shell_words::split(command)? {
+                    final_command.push(shell_word.clone());
+                }
+                self.plan.push(PlannedTask::from_shell_command(name, command)?);
             }
             Task::CreateDirectory { name, path } => {
                 self.plan.push(PlannedTask {
-                    name,
-                    command: vec!["mkdir", path],
-                    ensures: vec![Ensure::DirectoryExists { path }],
+                    name: name.to_string(),
+                    command: vec!["mkdir".into(), path.to_string()],
+                    ensures: vec![Ensure::DirectoryExists { path: path.to_string() }],
                 });
             }
             Task::TouchFile { name, path } => {
                 self.plan.push(PlannedTask {
-                    name,
-                    command: vec!["touch", path],
-                    ensures: vec![Ensure::ExeExists { exe: "touch" }],
+                    name: name.to_string(),
+                    command: vec!["touch".into(), path.to_string()],
+                    ensures: vec![Ensure::ExeExists { exe: "touch".into() }],
                 });
             }
-            Task::__phantom(_) => unreachable!(),
         }
 
-        debug!("planning task visitor: finished planning task: {}", &task.name());
+        debug!(
+            "planning task visitor: finished planning task: {}",
+            &task.name()
+        );
         Ok(())
     }
 }
 
 #[async_trait]
-pub trait PlannedTaskVisitor<'a> {
+pub trait PlannedTaskVisitor: Send {
     type Out;
 
-    async fn visit_planned_task(&mut self, task: &'a PlannedTask<'a>) -> Result<Self::Out>;
+    async fn visit_planned_task(&mut self, task: &PlannedTask) -> Result<Self::Out>;
 }
 
 #[derive(Getters, Debug, Clone, Default)]
@@ -82,11 +84,11 @@ impl EnsuringTaskVisitor {
 }
 
 #[async_trait]
-impl<'a> PlannedTaskVisitor<'a> for EnsuringTaskVisitor {
+impl PlannedTaskVisitor for EnsuringTaskVisitor {
     type Out = Vec<anyhow::Error>;
 
     #[tracing::instrument]
-    async fn visit_planned_task(&mut self, task: &'a PlannedTask<'a>) -> Result<Self::Out> {
+    async fn visit_planned_task(&mut self, task: &PlannedTask) -> Result<Self::Out> {
         let mut last_len = 0;
         let mut errors: Vec<anyhow::Error> = vec![];
         for ensure in task.ensures() {
@@ -156,7 +158,11 @@ impl<'a> PlannedTaskVisitor<'a> for EnsuringTaskVisitor {
                 }
             }
 
-            debug!("ensuring task visitor: checking task: {}: found {} errors", &task.name(), errors.len() - last_len);
+            debug!(
+                "ensuring task visitor: checking task: {}: found {} errors",
+                &task.name(),
+                errors.len() - last_len
+            );
             last_len = errors.len();
         }
         Ok(errors)

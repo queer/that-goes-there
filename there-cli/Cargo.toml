@@ -8,5 +8,16 @@ edition = "2021"
 [dependencies]
 libthere = { path = "../libthere" }
 
+anyhow = "1.0.66"
+clap = { version = "4.0.18", features = ["cargo"] }
+dialoguer = { version = "0.10.2", features = ["completion", "fuzzy-matcher", "fuzzy-select", "history"] }
+time = { version = "0.3.16", features = ["macros"] }
 tokio = { version = "1.21.2", features = ["full"] }
 tracing-futures = { version = "0.2.5", features = ["tokio"] }
+tracing-subscriber = { version = "0.3.16", features = ["json", "serde", "serde_json", "time", "tracing", "env-filter", "local-time"] }
+async-trait = "0.1.58"
+regex = "1.6.0"
+thiserror = "1.0.37"
+reqwest = "0.11.12"
+serde_yaml = "0.9.14"
+tracing = { version = "0.1.37", features = ["async-await"] }
