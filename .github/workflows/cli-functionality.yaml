@@ -1,14 +1,15 @@
-name: "Run clippy lints"
+name: "Test CLI functionality"
 on:
-  push:
+  workflow_run:
+    workflows:
+      - "Run all tests"
     branches:
       - "mistress"
-  pull_request:
-    branches:
-      - "mistress"
+    types:
+      - "completed"
 
 jobs:
-  run-clippy:
+  run-tests:
     strategy:
       matrix:
         version: ["stable", "nightly", "1.64"]
@@ -24,5 +25,7 @@ jobs:
       - uses: "Swatinem/rust-cache@v1"
         with:
           key: "clippy"
-      - name: "Run clippy"
-        run: "cargo clippy"
+      - name: "Make sure the CLI passes valid config"
+        run: "cargo run -p there-cli -- plan validate -f ./test/plan.yaml"
+      - name: "Make sure the CLI fails invalid config"
+        run: "cargo run -p there-cli -- plan validate -f ./test/invalid-plan.yaml"
