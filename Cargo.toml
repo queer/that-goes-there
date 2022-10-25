@@ -1,0 +1,7 @@
+[workspace]
+members = [
+  "libthere",
+  "there-cli",
+  "there-agent",
+  "there-controller"
+]
