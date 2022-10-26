@@ -121,7 +121,13 @@ impl PlanCommand {
                                 "ssh" => ExecutorType::Ssh,
                                 _ => anyhow::bail!("unknown executor type: {}", executor),
                             };
-                            futures.push(self.do_apply(plan, hostname.clone(), host, executor_type, matches));
+                            futures.push(self.do_apply(
+                                plan,
+                                hostname.clone(),
+                                host,
+                                executor_type,
+                                matches,
+                            ));
                             println!("*** prepared plan for host: {}", &hostname);
                         } else {
                             println!("*** skippinng host, no tasks: {}", &hostname);
@@ -196,7 +202,13 @@ impl PlanCommand {
                 let mut context = ssh::SshExecutionContext::new("test", plan);
                 let context = Mutex::new(&mut context);
                 #[allow(clippy::or_fun_call)]
-                let executor = ssh::SshExecutor::new(host, ssh_hostname.into(), &tx, ssh_key, ssh_key_passphrase);
+                let executor = ssh::SshExecutor::new(
+                    host,
+                    ssh_hostname.into(),
+                    &tx,
+                    ssh_key,
+                    ssh_key_passphrase,
+                );
                 executor.execute(context).await?;
             }
             #[allow(unreachable_patterns)]

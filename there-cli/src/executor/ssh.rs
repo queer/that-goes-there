@@ -138,7 +138,11 @@ impl<'a> Executor<SshExecutionContext> for SshExecutor<'a> {
             let ctx = ctx.lock().await;
             debug!("got it!");
             let clone = ctx.clone();
-            println!("* applying plan: {} -> {}", ctx.plan().name(), self.hostname);
+            println!(
+                "* applying plan: {} -> {}",
+                ctx.plan().name(),
+                self.hostname
+            );
             println!("* steps: {}", ctx.plan().blueprint().len());
             info!("applying plan: {}", ctx.plan().name());
             for task in ctx.plan.blueprint().iter() {
@@ -148,7 +152,11 @@ impl<'a> Executor<SshExecutionContext> for SshExecutor<'a> {
                     .with_context(|| format!("failed executing ssh task: {}", task.name()))?;
             }
             info!("plan applied: {}", ctx.plan().name());
-            println!("* finished applying plan: {} -> {}", ctx.plan().name(), &self.hostname);
+            println!(
+                "* finished applying plan: {} -> {}",
+                ctx.plan().name(),
+                &self.hostname
+            );
         } else {
             let mut sink = self.log_sink.lock().await;
             sink.sink(PartialLogStream::Next(vec![
