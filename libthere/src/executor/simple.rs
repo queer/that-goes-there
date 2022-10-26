@@ -285,6 +285,7 @@ mod test {
             log_source.source().await?
         );
         assert_eq!(PartialLogStream::Next(vec![String::new()]), log_source.source().await?);
+        assert_eq!(PartialLogStream::Next(vec!["*** finished applying plan: test (1/1)".into()]), log_source.source().await?);
         assert_eq!(PartialLogStream::End, log_source.source().await?);
         Ok(())
     }
