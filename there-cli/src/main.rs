@@ -42,7 +42,6 @@ async fn main() -> Result<()> {
                         ).arg(
                             Arg::new("hosts")
                                 .help("Path to the hosts file. No default.")
-                                .short('h')
                                 .long("hosts"),
                         ),
                 )
