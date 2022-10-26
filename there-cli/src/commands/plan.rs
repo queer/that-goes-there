@@ -4,11 +4,13 @@ use super::Interactive;
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use clap::ArgMatches;
+use futures::stream::FuturesUnordered;
 use libthere::executor::{simple, Executor, LogSource, PartialLogStream};
 use libthere::plan::host::{Host, HostConfig};
 use libthere::{log::*, plan};
 use tokio::fs;
 use tokio::sync::{mpsc, Mutex};
+use tokio_stream::StreamExt;
 
 use crate::executor::ssh;
 
@@ -104,7 +106,7 @@ impl PlanCommand {
                 }
             } else {
                 info!("applying plan...");
-                let mut futures = vec![];
+                let mut futures = FuturesUnordered::new();
                 for (group_name, group_hosts) in hosts.groups() {
                     println!("*** applying plan to group: {} ***", group_name);
                     for hostname in group_hosts {
@@ -130,11 +132,26 @@ impl PlanCommand {
                             ));
                             println!("*** prepared plan for host: {}", &hostname);
                         } else {
-                            println!("*** skippinng host, no tasks: {}", &hostname);
+                            println!("*** skipping host, no tasks: {}", &hostname);
                         }
                     }
                 }
-                futures::future::join_all(futures).await;
+                while let Some(result) = futures.next().await {
+                    match result {
+                        Ok((host, tasks_completed)) => {
+                            println!(
+                                "*** completed plan for host: {}: {}/{} ***",
+                                host,
+                                tasks_completed,
+                                plan.blueprint().len()
+                            );
+                        }
+                        Err(e) => {
+                            // TODO: Figure out a better way to pull the above information back out of the executor...
+                            error!("error applying plan: {}", e);
+                        }
+                    }
+                }
                 info!("done!");
             }
         } else {
@@ -147,6 +164,7 @@ impl PlanCommand {
         Ok(())
     }
 
+    /// Returns how many tasks passed.
     async fn do_apply(
         &self,
         plan: plan::Plan,
@@ -154,7 +172,7 @@ impl PlanCommand {
         host: &Host,
         executor_type: ExecutorType,
         matches: &ArgMatches,
-    ) -> Result<()> {
+    ) -> Result<(String, u32)> {
         let (tx, rx) = mpsc::channel(1024);
         let mut log_source = libthere::executor::simple::SimpleLogSource::new(rx);
         let log_hostname = hostname.clone();
@@ -176,12 +194,21 @@ impl PlanCommand {
         });
 
         // TODO: Figure out this generics mess lmao
-        match executor_type {
+        let tasks_completed = match executor_type {
             ExecutorType::Local => {
-                let mut context = simple::SimpleExecutionContext::new("test", plan);
+                let mut context = simple::SimpleExecutionContext::new("test", &plan);
                 let context = Mutex::new(&mut context);
-                let executor = simple::SimpleExecutor::new(&tx);
-                executor.execute(context).await?;
+                let mut executor = simple::SimpleExecutor::new(&tx);
+                executor.execute(context).await.with_context(|| {
+                    format!(
+                        "failed to apply plan {} to host {}: {}/{} tasks finished",
+                        plan.name(),
+                        hostname,
+                        executor.tasks_completed(),
+                        plan.blueprint().len()
+                    )
+                })?;
+                *executor.tasks_completed()
             }
             ExecutorType::Ssh => {
                 let ssh_key_file = matches
@@ -199,17 +226,21 @@ impl PlanCommand {
                     Some(Err(e)) => return Err(e),
                     None => None,
                 };
-                let mut context = ssh::SshExecutionContext::new("test", plan);
+                let mut context = ssh::SshExecutionContext::new("test", &plan);
                 let context = Mutex::new(&mut context);
                 #[allow(clippy::or_fun_call)]
-                let executor = ssh::SshExecutor::new(
-                    host,
-                    ssh_hostname.into(),
-                    &tx,
-                    ssh_key,
-                    ssh_key_passphrase,
-                );
-                executor.execute(context).await?;
+                let mut executor =
+                    ssh::SshExecutor::new(host, ssh_hostname, &tx, ssh_key, ssh_key_passphrase)?;
+                executor.execute(context).await.with_context(|| {
+                    format!(
+                        "failed to apply plan {} to host {}: {}/{} tasks finished",
+                        plan.name(),
+                        hostname,
+                        executor.tasks_completed(),
+                        plan.blueprint().len()
+                    )
+                })?;
+                *executor.tasks_completed()
             }
             #[allow(unreachable_patterns)]
             _ => {
@@ -218,7 +249,7 @@ impl PlanCommand {
         };
         info!("finished applying plan");
         join_handle.await?;
-        Ok(())
+        Ok((hostname, tasks_completed))
     }
 }
 

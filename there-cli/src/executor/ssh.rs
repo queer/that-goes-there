@@ -17,6 +17,7 @@ pub struct SshExecutor<'a> {
     keypair: Arc<thrussh_keys::key::KeyPair>,
     host: &'a Host,
     hostname: String,
+    tasks_completed: u32,
 }
 
 impl<'a> SshExecutor<'a> {
@@ -26,7 +27,7 @@ impl<'a> SshExecutor<'a> {
         tx: &'a SimpleLogTx,
         ssh_key: String,
         ssh_key_passphrase: Option<String>,
-    ) -> Self {
+    ) -> Result<Self> {
         let keypair = match ssh_key_passphrase {
             Some(passphrase) => {
                 thrussh_keys::decode_secret_key(ssh_key.as_str(), Some(&passphrase))
@@ -34,22 +35,22 @@ impl<'a> SshExecutor<'a> {
             }
             None => thrussh_keys::decode_secret_key(ssh_key.as_str(), None)
                 .context("Decoding SSH key failed."),
-        }
-        .unwrap();
+        }?;
 
-        Self {
+        Ok(Self {
             log_sink: Arc::new(Mutex::new(SimpleLogSink::new(tx))),
             keypair: Arc::new(keypair),
             host,
             hostname,
-        }
+            tasks_completed: 0,
+        })
     }
 
     #[tracing::instrument(skip(self, channel))]
     async fn execute_task(
         &self,
         task: &plan::PlannedTask,
-        ctx: &mut SshExecutionContext,
+        ctx: &mut SshExecutionContext<'a>,
         channel: &mut thrussh::client::Channel,
     ) -> Result<()> {
         println!("** Executing task: {}", task.name());
@@ -116,14 +117,28 @@ impl<'a> SshExecutor<'a> {
 }
 
 #[async_trait]
-impl<'a> Executor<SshExecutionContext> for SshExecutor<'a> {
-    async fn execute(&self, ctx: Mutex<&mut SshExecutionContext>) -> Result<()> {
+impl<'a> Executor<'a, SshExecutionContext<'a>> for SshExecutor<'a> {
+    async fn execute(&mut self, ctx: Mutex<&'a mut SshExecutionContext>) -> Result<()> {
+        debug!("awaiting ctx lock...");
+        let ctx = ctx.lock().await;
+        debug!("got it!");
+        println!(
+            "* applying plan: {} -> {}",
+            ctx.plan().name(),
+            self.hostname
+        );
+        println!("* steps: {}", ctx.plan().blueprint().len());
+
         // Attempt to get a working SSH client first; don't waste time.
         let sh = SshClient;
-        let config = Arc::new(thrussh::client::Config::default());
+        let config = thrussh::client::Config {
+            connection_timeout: Some(std::time::Duration::from_secs(5)),
+            ..Default::default()
+        };
+        let config = Arc::new(config);
         let addr = format!("{}:{}", self.host.host(), self.host.port());
         debug!("connecting to {}", &addr);
-        let mut session = thrussh::client::connect(config, addr, sh).await.unwrap();
+        let mut session = thrussh::client::connect(config, addr, sh).await?;
         let auth_res = session
             .authenticate_publickey(self.host.real_remote_user(), self.keypair.clone())
             .await;
@@ -134,29 +149,24 @@ impl<'a> Executor<SshExecutionContext> for SshExecutor<'a> {
             debug!("channel open!");
 
             // Actually apply the plan.
-            debug!("awaiting ctx lock...");
-            let ctx = ctx.lock().await;
-            debug!("got it!");
             let clone = ctx.clone();
-            println!(
-                "* applying plan: {} -> {}",
-                ctx.plan().name(),
-                self.hostname
-            );
-            println!("* steps: {}", ctx.plan().blueprint().len());
             info!("applying plan: {}", ctx.plan().name());
             for task in ctx.plan.blueprint().iter() {
                 debug!("ssh executor: executing task: {}", task.name());
                 self.execute_task(task, &mut clone.clone(), &mut channel)
                     .await
                     .with_context(|| format!("failed executing ssh task: {}", task.name()))?;
+                self.tasks_completed += 1;
             }
             info!("plan applied: {}", ctx.plan().name());
             println!(
-                "* finished applying plan: {} -> {}",
+                "* finished applying plan: {} -> {} ({}/{})",
                 ctx.plan().name(),
-                &self.hostname
+                &self.hostname,
+                self.tasks_completed,
+                ctx.plan().blueprint().len(),
             );
+            Ok(())
         } else {
             let mut sink = self.log_sink.lock().await;
             sink.sink(PartialLogStream::Next(vec![
@@ -164,20 +174,23 @@ impl<'a> Executor<SshExecutionContext> for SshExecutor<'a> {
             ]))
             .await?;
             sink.sink(PartialLogStream::End).await?;
+            anyhow::bail!("ssh authentication failed!");
         }
+    }
 
-        Ok(())
+    fn tasks_completed(&self) -> Result<u32> {
+        Ok(self.tasks_completed)
     }
 }
 
 #[derive(Getters, Debug, Clone)]
-pub struct SshExecutionContext {
+pub struct SshExecutionContext<'a> {
     name: String,
-    plan: plan::Plan,
+    plan: &'a plan::Plan,
 }
 
-impl SshExecutionContext {
-    pub fn new<S: Into<String>>(name: S, plan: plan::Plan) -> Self {
+impl<'a> SshExecutionContext<'a> {
+    pub fn new<S: Into<String>>(name: S, plan: &'a plan::Plan) -> Self {
         Self {
             name: name.into(),
             plan,
@@ -186,13 +199,13 @@ impl SshExecutionContext {
 }
 
 #[async_trait]
-impl ExecutionContext for SshExecutionContext {
+impl<'a> ExecutionContext for SshExecutionContext<'a> {
     fn name(&self) -> &str {
         &self.name
     }
 
     fn plan(&self) -> &plan::Plan {
-        &self.plan
+        self.plan
     }
 }
 

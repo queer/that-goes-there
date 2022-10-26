@@ -19,20 +19,22 @@ pub type SimpleLogRx = mpsc::Receiver<PartialLogStream>;
 pub struct SimpleExecutor<'a> {
     #[getter(skip)]
     log_sink: Arc<Mutex<SimpleLogSink<'a>>>,
+    tasks_completed: u32,
 }
 
 impl<'a> SimpleExecutor<'a> {
     pub fn new(tx: &'a SimpleLogTx) -> Self {
         Self {
             log_sink: Arc::new(Mutex::new(SimpleLogSink::new(tx))),
+            tasks_completed: 0,
         }
     }
 
     #[tracing::instrument(skip(self))]
     async fn execute_task(
-        &self,
+        &mut self,
         task: &plan::PlannedTask,
-        ctx: &mut SimpleExecutionContext,
+        ctx: &mut SimpleExecutionContext<'a>,
     ) -> Result<()> {
         use std::ops::Deref;
         use std::process::Stdio;
@@ -68,13 +70,23 @@ impl<'a> SimpleExecutor<'a> {
                 Some(next) = stdout.next() => {
                     if let Ok(logs) = next {
                         let logs = vec![String::from_utf8(logs.to_vec()).unwrap_or_else(|d| format!("got: {:#?}", d))];
-                        sink.sink(PartialLogStream::Next(logs)).await.unwrap();
+                        match sink.sink(PartialLogStream::Next(logs)).await {
+                            Ok(_) => {}
+                            Err(err) => {
+                                error!("error sinking logs: {}", err);
+                            }
+                        }
                     }
                 }
                 Some(next) = stderr.next() => {
                     if let Ok(logs) = next {
                         let logs = vec![String::from_utf8(logs.to_vec()).unwrap_or_else(|d| format!("got: {:#?}", d))];
-                        sink.sink(PartialLogStream::Next(logs)).await.unwrap();
+                        match sink.sink(PartialLogStream::Next(logs)).await {
+                            Ok(_) => {}
+                            Err(err) => {
+                                error!("error sinking logs: {}", err);
+                            }
+                        }
                     }
                 }
                 else => {
@@ -88,15 +100,16 @@ impl<'a> SimpleExecutor<'a> {
         sink.sink(PartialLogStream::Next(vec![String::new()]))
             .await?;
         sink.sink(PartialLogStream::End).await?;
+        self.tasks_completed += 1;
 
         Ok(())
     }
 }
 
 #[async_trait]
-impl<'a> Executor<SimpleExecutionContext> for SimpleExecutor<'a> {
+impl<'a> Executor<'a, SimpleExecutionContext<'a>> for SimpleExecutor<'a> {
     #[tracing::instrument(skip(self))]
-    async fn execute(&self, ctx: Mutex<&mut SimpleExecutionContext>) -> Result<()> {
+    async fn execute(&mut self, ctx: Mutex<&'a mut SimpleExecutionContext>) -> Result<()> {
         let mut ctx = ctx.lock().await;
         let clone = ctx.clone();
         println!("* applying plan: {}", ctx.plan().name());
@@ -107,19 +120,28 @@ impl<'a> Executor<SimpleExecutionContext> for SimpleExecutor<'a> {
             self.execute_task(task, &mut clone.clone()).await?;
         }
         info!("plan applied: {}", ctx.plan().name());
-        println!("* finished applying plan: {}", ctx.plan().name());
+        println!(
+            "* finished applying plan: {} ({}/{})",
+            ctx.plan().name(),
+            self.tasks_completed(),
+            ctx.plan().blueprint().len()
+        );
         Ok(())
+    }
+
+    fn tasks_completed(&self) -> Result<u32> {
+        Ok(self.tasks_completed)
     }
 }
 
 #[derive(Getters, Debug, Clone)]
-pub struct SimpleExecutionContext {
+pub struct SimpleExecutionContext<'a> {
     name: String,
-    plan: plan::Plan,
+    plan: &'a plan::Plan,
 }
 
-impl SimpleExecutionContext {
-    pub fn new<S: Into<String>>(name: S, plan: plan::Plan) -> Self {
+impl<'a> SimpleExecutionContext<'a> {
+    pub fn new<S: Into<String>>(name: S, plan: &'a plan::Plan) -> Self {
         Self {
             name: name.into(),
             plan,
@@ -128,13 +150,13 @@ impl SimpleExecutionContext {
 }
 
 #[async_trait]
-impl ExecutionContext for SimpleExecutionContext {
+impl<'a> ExecutionContext for SimpleExecutionContext<'a> {
     fn name(&self) -> &str {
         &self.name
     }
 
     fn plan(&self) -> &plan::Plan {
-        &self.plan
+        self.plan
     }
 }
 
@@ -152,9 +174,13 @@ impl<'a> SimpleLogSink<'a> {
 #[async_trait]
 impl<'a> LogSink for SimpleLogSink<'a> {
     #[tracing::instrument]
-    async fn sink(&mut self, logs: PartialLogStream) -> Result<()> {
+    async fn sink(&mut self, logs: PartialLogStream) -> Result<usize> {
+        let out = match logs {
+            PartialLogStream::Next(ref logs) => Ok(logs.len()),
+            PartialLogStream::End => Ok(0),
+        };
         self.tx.send(logs).await.context("Failed sending logs")?;
-        Ok(())
+        out
     }
 }
 
@@ -226,7 +252,7 @@ mod test {
         let hosts = HostConfig::default();
         let (plan, errors) = plan.validate(&hosts).await?;
         assert!(errors.is_empty());
-        let mut ctx = SimpleExecutionContext::new("test", plan);
+        let mut ctx = SimpleExecutionContext::new("test", &plan);
         let mut executor = SimpleExecutor::new(&tx);
         executor.execute(Mutex::new(&mut ctx)).await?;
         assert_eq!(

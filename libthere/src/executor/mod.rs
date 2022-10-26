@@ -16,10 +16,12 @@ pub enum PartialLogStream {
 }
 
 #[async_trait]
-pub trait Executor<T: ExecutionContext + std::fmt::Debug = simple::SimpleExecutionContext>:
+pub trait Executor<'a, T: ExecutionContext + std::fmt::Debug = simple::SimpleExecutionContext<'a>>:
     std::fmt::Debug + Send + Sync
 {
-    async fn execute(&self, ctx: Mutex<&mut T>) -> Result<()>;
+    async fn execute(&mut self, ctx: Mutex<&'a mut T>) -> Result<()>;
+
+    fn tasks_completed(&self) -> Result<u32>;
 }
 
 #[async_trait]
@@ -31,7 +33,7 @@ pub trait ExecutionContext: std::fmt::Debug {
 
 #[async_trait]
 pub trait LogSink: std::fmt::Debug {
-    async fn sink(&mut self, logs: PartialLogStream) -> Result<()>;
+    async fn sink(&mut self, logs: PartialLogStream) -> Result<usize>;
 }
 
 #[async_trait]

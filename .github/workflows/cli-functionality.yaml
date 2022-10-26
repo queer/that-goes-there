@@ -36,4 +36,4 @@ jobs:
       - name: "Make sure that the CLI can run basic configs"
         run: "cargo run -p there-cli -- plan apply -f ./test/ci/plan.yaml --hosts ./test/ci/hosts.yaml"
       - name: "Make sure that the CLI can run SSH configs"
-        run: "cargo run -p there-cli -- plan apply -f ./test/ci/ssh-plan.yaml --hosts ./test/ci/ssh-hosts.yaml --ssh-key /home/runner/.ssh/id_rsa"
+        run: "cargo run -p there-cli -- plan apply -f ./test/ci/ssh-plan.yaml --hosts ./test/ci/ssh-hosts.yaml --ssh-key /home/runner/.ssh/id_rsa && sleep 5" # TODO: Figure out why sleep(1) needed here

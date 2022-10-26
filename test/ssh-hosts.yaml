@@ -1,7 +1,7 @@
 ---
 hosts:
   localhost:
-    host: "localhost"
+    host: "10.42.0.69"
     executor: "ssh"
     remote_user: "amy"
   ssh-localhost:
