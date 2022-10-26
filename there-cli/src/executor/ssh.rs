@@ -46,14 +46,23 @@ impl<'a> SshExecutor<'a> {
         })
     }
 
+    async fn sink_one<S: Into<String>>(&mut self, msg: S) -> Result<usize> {
+        self.log_sink
+            .lock()
+            .await
+            .sink_one(msg.into().clone())
+            .await
+            .context("failed to sink log message.")
+    }
+
     #[tracing::instrument(skip(self, channel))]
     async fn execute_task(
-        &self,
+        &mut self,
         task: &plan::PlannedTask,
         ctx: &mut SshExecutionContext<'a>,
         channel: &mut thrussh::client::Channel,
     ) -> Result<()> {
-        println!("** Executing task: {}", task.name());
+        self.sink_one(format!("** executing task: {}", task.name())).await?;
         info!("executing task: {}", task.name());
 
         // TODO: Figure out env etc...
@@ -110,7 +119,6 @@ impl<'a> SshExecutor<'a> {
         let mut sink = self.log_sink.lock().await;
         sink.sink(PartialLogStream::Next(vec![String::new()]))
             .await?;
-        sink.sink(PartialLogStream::End).await?;
 
         Ok(())
     }
@@ -122,12 +130,7 @@ impl<'a> Executor<'a, SshExecutionContext<'a>> for SshExecutor<'a> {
         debug!("awaiting ctx lock...");
         let ctx = ctx.lock().await;
         debug!("got it!");
-        println!(
-            "* applying plan: {} -> {}",
-            ctx.plan().name(),
-            self.hostname
-        );
-        println!("* steps: {}", ctx.plan().blueprint().len());
+        self.sink_one(format!("* steps: {}", ctx.plan().blueprint().len())).await?;
 
         // Attempt to get a working SSH client first; don't waste time.
         let sh = SshClient;
@@ -159,13 +162,15 @@ impl<'a> Executor<'a, SshExecutionContext<'a>> for SshExecutor<'a> {
                 self.tasks_completed += 1;
             }
             info!("plan applied: {}", ctx.plan().name());
-            println!(
+            self.sink_one(format!(
                 "*** finished applying plan: {} -> {} ({}/{})",
                 ctx.plan().name(),
                 &self.hostname,
                 self.tasks_completed,
                 ctx.plan().blueprint().len(),
-            );
+            )).await?;
+            let mut sink = self.log_sink.lock().await;
+            sink.sink(PartialLogStream::End).await?;
             Ok(())
         } else {
             let mut sink = self.log_sink.lock().await;

@@ -159,7 +159,7 @@ impl PlanCommand {
                                         tasks_completed,
                                         plan.blueprint().len()
                                     );
-                                    println!("*** error: {}", e);
+                                    println!("*** error: {:#}", e);
                                 }
                                 #[allow(unreachable_patterns)]
                                 _ => unreachable!(),
@@ -170,7 +170,7 @@ impl PlanCommand {
                 info!("done!");
             }
         } else {
-            error!("Plan is invalid!");
+            error!("plan is invalid!");
             for error in validation_errors {
                 error!("- {}", error);
             }
@@ -216,7 +216,7 @@ impl PlanCommand {
                 let mut executor = simple::SimpleExecutor::new(&tx);
                 executor.execute(context).await.with_context(|| {
                     format!(
-                        "failed to apply plan {} to host {}: {}/{} tasks finished",
+                        "local executor failed to apply plan {} to host {}: {}/{} tasks finished",
                         plan.name(),
                         hostname,
                         executor.tasks_completed(),
@@ -231,10 +231,10 @@ impl PlanCommand {
                     .context("--ssh-key wasn't passed")?;
                 let ssh_key = fs::read_to_string(ssh_key_file)
                     .await
-                    .context("Failed reading ssh key file")?;
+                    .context("failed reading ssh key file")?;
 
                 let ssh_key_passphrase = matches.get_one::<String>("ssh-key-passphrase").map(|s| {
-                    std::fs::read_to_string(s).context("Failed to read ssh key passphrase")
+                    std::fs::read_to_string(s).context("failed to read ssh key passphrase")
                 });
                 let ssh_key_passphrase = match ssh_key_passphrase {
                     Some(Ok(passphrase)) => Some(passphrase),
@@ -248,7 +248,7 @@ impl PlanCommand {
                     ssh::SshExecutor::new(host, ssh_hostname, &tx, ssh_key, ssh_key_passphrase)?;
                 match executor.execute(context).await.with_context(|| {
                     format!(
-                        "failed to apply plan {} to host {}: {}/{} tasks finished",
+                        "ssh executor failed to apply plan {} to host {}: {}/{} tasks finished",
                         plan.name(),
                         hostname,
                         executor.tasks_completed(),

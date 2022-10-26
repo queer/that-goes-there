@@ -30,6 +30,15 @@ impl<'a> SimpleExecutor<'a> {
         }
     }
 
+    async fn sink_one<S: Into<String>>(&mut self, msg: S) -> Result<usize> {
+        self.log_sink
+            .lock()
+            .await
+            .sink_one(msg.into().clone())
+            .await
+            .context("Failed to sink log message.")
+    }
+
     #[tracing::instrument(skip(self))]
     async fn execute_task(
         &mut self,
@@ -44,7 +53,12 @@ impl<'a> SimpleExecutor<'a> {
         use tokio_stream::StreamExt;
         use tokio_util::codec::{BytesCodec, FramedRead};
 
-        println!("** Executing task: {}", task.name());
+        {
+            let mut locked_sink = self.log_sink.lock().await;
+            locked_sink.sink_one(format!("** Executing task: {}", task.name()));
+            // drop the lock to release and avoid deadlock
+            drop(locked_sink);
+        }
         info!("executing task: {}", task.name());
         let cmd = &task.command()[0];
         let args = task.command()[1..].to_vec();
@@ -112,20 +126,20 @@ impl<'a> Executor<'a, SimpleExecutionContext<'a>> for SimpleExecutor<'a> {
     async fn execute(&mut self, ctx: Mutex<&'a mut SimpleExecutionContext>) -> Result<()> {
         let mut ctx = ctx.lock().await;
         let clone = ctx.clone();
-        println!("* applying plan: {}", ctx.plan().name());
-        println!("* steps: {}", ctx.plan().blueprint().len());
+        self.sink_one(format!("* applying plan: {}", ctx.plan().name())).await?;
+        self.sink_one(format!("* steps: {}", ctx.plan().blueprint().len())).await?;
         info!("applying plan: {}", ctx.plan().name());
         for task in ctx.plan.blueprint().iter() {
             debug!("simple executor: executing task: {}", task.name());
             self.execute_task(task, &mut clone.clone()).await?;
         }
         info!("plan applied: {}", ctx.plan().name());
-        println!(
+        self.sink_one(format!(
             "*** finished applying plan: {} ({}/{})",
             ctx.plan().name(),
             self.tasks_completed(),
             ctx.plan().blueprint().len()
-        );
+        )).await?;
         Ok(())
     }
 
