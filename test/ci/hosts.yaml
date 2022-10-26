@@ -1,0 +1,9 @@
+---
+hosts:
+  localhost:
+    host: "localhost"
+    executor: "simple"
+
+groups:
+  test-group:
+    - "localhost"

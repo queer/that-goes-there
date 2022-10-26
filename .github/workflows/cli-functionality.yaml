@@ -26,6 +26,8 @@ jobs:
         with:
           key: "clippy"
       - name: "Make sure the CLI passes valid config"
-        run: "cargo run -p there-cli -- plan validate -f ./test/plan.yaml"
+        run: "cargo run -p there-cli -- plan validate -f ./test/ci/plan.yaml -h ./test/ci/hosts.yaml"
       - name: "Make sure the CLI fails invalid config"
-        run: "cargo run -p there-cli -- plan validate -f ./test/invalid-plan.yaml || true"
+        run: "cargo run -p there-cli -- plan validate -f ./test/ci/invalid-plan.yaml -h ./test/ci/hosts.yaml || true"
+      - name: "Make sure that the CLI can run basic configs"
+        run: "cargo run -p there-cli -- plan apply -f ./test/ci/plan.yaml -h ./test/ci/hosts.yaml"

@@ -36,9 +36,14 @@ async fn main() -> Result<()> {
                         .about("Validate a plan.")
                         .arg(
                             Arg::new("file")
-                                .help("Path to the plan file. Skips the input prompt if provided.")
+                                .help("Path to the plan file. No default.")
                                 .short('f')
                                 .long("file"),
+                        ).arg(
+                            Arg::new("hosts")
+                                .help("Path to the hosts file. No default.")
+                                .short('h')
+                                .long("hosts"),
                         ),
                 )
                 .subcommand(
@@ -46,7 +51,7 @@ async fn main() -> Result<()> {
                         .about("Apply a plan.")
                         .arg(
                             Arg::new("file")
-                                .help("Path to the plan file. Skips the input prompt if provided.")
+                                .help("Path to the plan file.")
                                 .short('f')
                                 .long("file"),
                         )
@@ -58,25 +63,10 @@ async fn main() -> Result<()> {
                                 .action(ArgAction::SetTrue),
                         )
                         .arg(
-                            Arg::new("executor")
-                                .help("Executor to apply the plan with. Has no effect if -d is specified. No default. Options are: local, ssh.")
-                                .short('e')
-                                .long("executor")
-                        )
-                        .arg(
-                            Arg::new("ssh-key")
-                                .help("SSH **PRIVATE** keyfile to use for the SSH executor. Has no effect if -d is specified, or if -e is not 'ssh'. No default.")
-                                .long("ssh-key")
-                        )
-                        .arg(
-                            Arg::new("ssh-user")
-                                .help("SSH user to use for the SSH executor. Has no effect if -d is specified, or if -e is not 'ssh'. No default.")
-                                .long("ssh-user")
-                        )
-                        .arg(
-                            Arg::new("ssh-key-passphrase")
-                                .help("File to use to unlock the SSH private key. Has no effect if -d is specified, or if -e is not 'ssh'. No default.")
-                                .long("ssh-key-passphrase")
+                            Arg::new("hosts")
+                                .help("Path to the hosts file. No default.")
+                                .short('h')
+                                .long("hosts"),
                         )
                         ,
                 )

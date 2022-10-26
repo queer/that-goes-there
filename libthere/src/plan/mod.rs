@@ -8,8 +8,12 @@ use tokio::sync::Mutex;
 
 use crate::log::*;
 
+pub mod host;
 pub mod visitor;
+
 pub use visitor::{PlannedTaskVisitor, TaskVisitor};
+
+use self::host::HostConfig;
 
 #[derive(Getters, Debug, Clone, Serialize, Deserialize)]
 pub struct TaskSet {
@@ -46,9 +50,21 @@ impl TaskSet {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum Task {
-    Command { name: String, command: String },
-    CreateDirectory { name: String, path: String },
-    TouchFile { name: String, path: String },
+    Command {
+        name: String,
+        command: String,
+        hosts: Vec<String>,
+    },
+    CreateDirectory {
+        name: String,
+        path: String,
+        hosts: Vec<String>,
+    },
+    TouchFile {
+        name: String,
+        path: String,
+        hosts: Vec<String>,
+    },
 }
 
 impl Task {
@@ -79,7 +95,7 @@ impl Plan {
     }
 
     #[tracing::instrument]
-    pub async fn validate(&mut self) -> Result<(Plan, Vec<anyhow::Error>)> {
+    pub async fn validate(&mut self, hosts: &HostConfig) -> Result<(Plan, Vec<anyhow::Error>)> {
         use std::ops::DerefMut;
         use std::sync::Arc;
         use tokio::sync::Mutex;
@@ -152,6 +168,8 @@ pub enum Ensure {
 mod tests {
     use anyhow::Result;
 
+    use crate::plan::host::HostConfig;
+
     use super::{Task, TaskSet};
 
     #[tokio::test]
@@ -160,13 +178,14 @@ mod tests {
         taskset.add_task(Task::Command {
             name: "test".into(),
             command: "echo hello".into(),
+            hosts: vec![],
         });
         let mut plan = taskset.plan().await?;
         assert_eq!(1, plan.blueprint().len());
         assert_eq!("test", plan.blueprint()[0].name());
         assert_eq!("echo hello", plan.blueprint()[0].command().join(" "));
 
-        let (_, errors) = plan.validate().await?;
+        let (_, errors) = plan.validate(&HostConfig::default()).await?;
         assert!(errors.is_empty());
         Ok(())
     }
@@ -177,9 +196,10 @@ mod tests {
         taskset.add_task(Task::Command {
             name: "test".into(),
             command: "doesnotexist".into(),
+            hosts: vec![],
         });
         let mut plan = taskset.plan().await?;
-        let (_, errors) = plan.validate().await?;
+        let (_, errors) = plan.validate(&HostConfig::default()).await?;
         assert_eq!(1, errors.len());
         assert_eq!(
             "doesnotexist not found in $PATH".to_string(),
@@ -194,9 +214,10 @@ mod tests {
         taskset.add_task(Task::TouchFile {
             name: "test".into(),
             path: "./tmp/test.txt".into(),
+            hosts: vec![],
         });
         let mut plan = taskset.plan().await?;
-        let (_, errors) = plan.validate().await?;
+        let (_, errors) = plan.validate(&HostConfig::default()).await?;
         assert!(errors.is_empty());
         Ok(())
     }

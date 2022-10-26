@@ -36,7 +36,7 @@ impl TaskVisitor for PlanningTaskVisitor {
         debug!("planning task visitor: visiting task: {}", &task.name());
 
         match task {
-            Task::Command { name, command } => {
+            Task::Command { name, command, .. } => {
                 let mut final_command = vec![];
                 for shell_word in shell_words::split(command)? {
                     final_command.push(shell_word.clone());
@@ -44,7 +44,7 @@ impl TaskVisitor for PlanningTaskVisitor {
                 self.plan
                     .push(PlannedTask::from_shell_command(name, command)?);
             }
-            Task::CreateDirectory { name, path } => {
+            Task::CreateDirectory { name, path, .. } => {
                 self.plan.push(PlannedTask {
                     name: name.to_string(),
                     command: vec!["mkdir".into(), path.to_string()],
@@ -53,7 +53,7 @@ impl TaskVisitor for PlanningTaskVisitor {
                     }],
                 });
             }
-            Task::TouchFile { name, path } => {
+            Task::TouchFile { name, path, .. } => {
                 self.plan.push(PlannedTask {
                     name: name.to_string(),
                     command: vec!["touch".into(), path.to_string()],

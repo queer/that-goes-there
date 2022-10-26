@@ -1,10 +1,13 @@
+use std::collections::HashMap;
+
 use super::Interactive;
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use clap::ArgMatches;
 use libthere::executor::{simple, Executor, LogSource, PartialLogStream};
+use libthere::plan::host::{Host, HostConfig};
 use libthere::{log::*, plan};
-use tokio::fs::{self, read_to_string};
+use tokio::fs;
 use tokio::sync::{mpsc, Mutex};
 
 use crate::executor::ssh;
@@ -24,20 +27,56 @@ impl PlanCommand {
 }
 
 impl PlanCommand {
+    async fn read_hosts_config<S: Into<String>>(&self, path: S) -> Result<HostConfig> {
+        let hosts = fs::read_to_string(path.into())
+            .await
+            .context("Failed reading hosts file")?;
+        serde_yaml::from_str(hosts.as_str()).context("deserializing hosts config")
+    }
+
     async fn subcommand_validate<'a>(
         &self,
         _context: &'a super::CliContext<'a>,
         matches: &ArgMatches,
     ) -> Result<()> {
         let file = self.read_argument_with_validator(matches, "file", &mut |_| Ok(()))?;
-        let plan = read_to_string(file).await?;
+        let hosts_file = self.read_argument_with_validator(matches, "hosts", &mut |_| Ok(()))?;
+        let hosts = self.read_hosts_config(hosts_file).await?;
+
+        let plan = fs::read_to_string(file).await?;
         let mut task_set: libthere::plan::TaskSet =
             serde_yaml::from_str(plan.as_str()).context("Failed deserializing plan")?;
         let mut plan = task_set.plan().await?;
-        if plan.validate().await.is_ok() {
-            info!("Plan is valid.");
+        if plan.validate(&hosts).await.is_ok() {
+            info!("plan is valid.");
+            println!("* plan is valid.");
+            println!("** hosts:");
+            for (group_name, group_hosts) in hosts.groups() {
+                self.inspect_host_group(hosts.hosts(), group_name, group_hosts)?;
+            }
         } else {
-            error!("Plan is invalid.");
+            error!("plan is invalid.");
+            println!("* plan is invalid.");
+        }
+        Ok(())
+    }
+
+    fn inspect_host_group(
+        &self,
+        hosts: &HashMap<String, Host>,
+        group_name: &String,
+        group_hosts: &Vec<String>,
+    ) -> Result<()> {
+        println!("*** group: {}", group_name);
+        for hostname in group_hosts {
+            let host = hosts.get(hostname).context("Host not found")?;
+            println!(
+                "**** {}: {}:{} ({})",
+                hostname,
+                host.host(),
+                host.port(),
+                host.executor()
+            );
         }
         Ok(())
     }
@@ -48,11 +87,14 @@ impl PlanCommand {
         matches: &ArgMatches,
     ) -> Result<()> {
         let file = self.read_argument_with_validator(matches, "file", &mut |_| Ok(()))?;
-        let plan = read_to_string(file).await?;
+        let plan = fs::read_to_string(file).await?;
         let mut task_set: libthere::plan::TaskSet =
             serde_yaml::from_str(plan.as_str()).context("Failed deserializing plan")?;
+        let hosts_file = self.read_argument_with_validator(matches, "hosts", &mut |_| Ok(()))?;
+        let hosts = self.read_hosts_config(hosts_file).await?;
+
         let mut plan = task_set.plan().await?;
-        let (plan, validation_errors) = plan.validate().await?;
+        let (plan, validation_errors) = plan.validate(&hosts).await?;
 
         if validation_errors.is_empty() {
             if *matches.get_one::<bool>("dry").unwrap() {
@@ -62,13 +104,27 @@ impl PlanCommand {
                 }
             } else {
                 info!("applying plan...");
-                let executor_type: ExecutorType =
-                    match matches.get_one::<String>("executor").unwrap().as_str() {
-                        "local" => ExecutorType::Local,
-                        "ssh" => ExecutorType::Ssh,
-                        _ => unreachable!(),
-                    };
-                self.do_apply(plan, executor_type, matches).await?;
+                let mut futures = vec![];
+                for (group_name, group_hosts) in hosts.groups() {
+                    println!("*** applying plan to group: {} ***", group_name);
+                    for host in group_hosts {
+                        let executor = hosts
+                            .hosts()
+                            .get(host)
+                            .with_context(|| format!("couldn't find host {}", host))?
+                            .executor();
+                        let executor_type: ExecutorType = match executor.as_str() {
+                            "simple" => ExecutorType::Local,
+                            "local" => ExecutorType::Local,
+                            "ssh" => ExecutorType::Ssh,
+                            _ => anyhow::bail!("unknown executor type: {}", executor),
+                        };
+                        futures.push(self.do_apply(plan.clone(), executor_type, matches));
+                    }
+                }
+                for future in futures {
+                    future.await?;
+                }
                 info!("done!");
             }
         } else {

@@ -206,6 +206,7 @@ impl LogSource for SimpleLogSource {
 mod test {
     use crate::executor::simple::*;
     use crate::executor::*;
+    use crate::plan::host::HostConfig;
     use crate::plan::*;
 
     use tokio::sync::mpsc;
@@ -219,9 +220,11 @@ mod test {
         taskset.add_task(Task::Command {
             name: "test".into(),
             command: "echo 'hello'".into(),
+            hosts: vec![],
         });
         let mut plan = taskset.plan().await?;
-        let (plan, errors) = plan.validate().await?;
+        let hosts = HostConfig::default();
+        let (plan, errors) = plan.validate(&hosts).await?;
         assert!(errors.is_empty());
         let mut ctx = SimpleExecutionContext::new("test", plan);
         let mut executor = SimpleExecutor::new(&tx);
