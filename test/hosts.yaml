@@ -3,7 +3,13 @@ hosts:
   localhost:
     host: "localhost"
     executor: "simple"
+  ssh-localhost:
+    host: "localhost"
+    executor: "ssh"
+    remote_user: "amy"
 
 groups:
   test-group:
     - "localhost"
+  ssh-group:
+    - "ssh-localhost"

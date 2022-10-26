@@ -68,6 +68,13 @@ async fn main() -> Result<()> {
                                 .short('h')
                                 .long("hosts"),
                         )
+                        .arg(
+                            Arg::new("ssh-key")
+                                .help("Path to the SSH key to use for SSH executor.")
+                                .short('k')
+                                .long("ssh-key"),
+                        )
+                        .arg(Arg::new("ssh-key-passphrase").help("Path to the SSH key passphrase file.").short('p').long("ssh-key-passphrase"))
                         ,
                 )
         )

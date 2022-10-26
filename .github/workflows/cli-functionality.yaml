@@ -17,6 +17,11 @@ jobs:
     runs-on: "ubuntu-latest"
     steps:
       - uses: "actions/checkout@v2"
+      - name: "Make sure SSH will work as expected"
+        run: |
+          ssh-keygen -t ed25519 -f ~/.ssh/whatever -N ''
+          echo -n 'from="127.0.0.1" ' | cat - ~/.ssh/whatever.pub > ~/.ssh/authorized_keys
+          chmod og-rw ~
       - name: "Install latest stable Rust"
         uses: "actions-rs/toolchain@v1"
         with:
@@ -31,3 +36,5 @@ jobs:
         run: "cargo run -p there-cli -- plan validate -f ./test/ci/invalid-plan.yaml -h ./test/ci/hosts.yaml || true"
       - name: "Make sure that the CLI can run basic configs"
         run: "cargo run -p there-cli -- plan apply -f ./test/ci/plan.yaml -h ./test/ci/hosts.yaml"
+      - name: "Make sure that the CLI can run SSH configs"
+        run: "cargo run -p there-cli -- plan apply -f ./test/ci/ssh-plan.yaml -h ./test/ci/ssh-hosts.yaml --ssh-key /home/runner/.ssh/id_rsa"

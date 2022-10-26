@@ -13,7 +13,7 @@ pub mod visitor;
 
 pub use visitor::{PlannedTaskVisitor, TaskVisitor};
 
-use self::host::HostConfig;
+use self::host::{Host, HostConfig};
 
 #[derive(Getters, Debug, Clone, Serialize, Deserialize)]
 pub struct TaskSet {
@@ -81,6 +81,15 @@ impl Task {
             _ => "<unknown>",
         }
     }
+
+    pub fn hosts(&self) -> Vec<String> {
+        match self {
+            Task::Command { hosts, .. } => hosts.clone(),
+            Task::CreateDirectory { hosts, .. } => hosts.clone(),
+            Task::TouchFile { hosts, .. } => hosts.clone(),
+            _ => vec![],
+        }
+    }
 }
 
 #[derive(Getters, Debug, Clone, Deserialize, Serialize)]
@@ -126,6 +135,31 @@ impl Plan {
 
         Ok((me, errors))
     }
+
+    pub fn plan_for_host(&self, host: String, hosts: HostConfig) -> Plan {
+        Plan {
+            name: self.name.clone(),
+            blueprint: self
+                .blueprint
+                .iter()
+                .filter_map(|task| {
+                    let group_names: Vec<String> = hosts
+                        .groups()
+                        .iter()
+                        .filter(|(_name, hosts)| hosts.contains(&host))
+                        .map(|(name, _hosts)| name.clone())
+                        .collect();
+                    if task.hosts().contains(&host)
+                        || task.hosts().iter().any(|host| group_names.contains(host))
+                    {
+                        Some(task.clone())
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+        }
+    }
 }
 
 #[derive(Getters, Debug, Clone, Deserialize, Serialize)]
@@ -133,6 +167,7 @@ pub struct PlannedTask {
     name: String,
     command: Vec<String>,
     ensures: Vec<Ensure>,
+    hosts: Vec<String>,
 }
 
 impl PlannedTask {
@@ -144,13 +179,18 @@ impl PlannedTask {
         visitor.visit_planned_task(self).await
     }
 
-    pub fn from_shell_command<S: Into<String>>(name: S, command: S) -> Result<Self> {
+    pub fn from_shell_command<S: Into<String>>(
+        name: S,
+        command: S,
+        hosts: Vec<String>,
+    ) -> Result<Self> {
         let split = shell_words::split(command.into().as_str())?;
         let head = split[0].clone();
         Ok(Self {
             name: name.into(),
             ensures: vec![Ensure::ExeExists { exe: head }],
             command: split,
+            hosts,
         })
     }
 }

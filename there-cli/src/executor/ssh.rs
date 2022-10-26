@@ -7,20 +7,21 @@ use libthere::executor::simple::{SimpleLogSink, SimpleLogTx};
 use libthere::executor::{ExecutionContext, Executor, LogSink, PartialLogStream};
 use libthere::log::*;
 use libthere::plan;
+use libthere::plan::host::Host;
 use tokio::sync::Mutex;
 
 #[derive(Getters, Debug)]
 pub struct SshExecutor<'a> {
     #[getter(skip)]
     log_sink: Arc<Mutex<SimpleLogSink<'a>>>,
-    ssh_user: String,
     keypair: Arc<thrussh_keys::key::KeyPair>,
+    host: &'a Host,
 }
 
 impl<'a> SshExecutor<'a> {
     pub fn new(
+        host: &'a Host,
         tx: &'a SimpleLogTx,
-        ssh_user: String,
         ssh_key: String,
         ssh_key_passphrase: Option<String>,
     ) -> Self {
@@ -36,8 +37,8 @@ impl<'a> SshExecutor<'a> {
 
         Self {
             log_sink: Arc::new(Mutex::new(SimpleLogSink::new(tx))),
-            ssh_user,
             keypair: Arc::new(keypair),
+            host,
         }
     }
 
@@ -117,11 +118,11 @@ impl<'a> Executor<SshExecutionContext> for SshExecutor<'a> {
         // Attempt to get a working SSH client first; don't waste time.
         let sh = SshClient;
         let config = Arc::new(thrussh::client::Config::default());
-        let addr = "localhost:2222";
+        let addr = format!("{}:{}", self.host.host(), self.host.port());
         debug!("connecting to {}", &addr);
         let mut session = thrussh::client::connect(config, addr, sh).await.unwrap();
         let auth_res = session
-            .authenticate_publickey(self.ssh_user.as_str(), self.keypair.clone())
+            .authenticate_publickey(self.host.real_remote_user(), self.keypair.clone())
             .await;
         if auth_res? {
             debug!("successfully authenticated!");

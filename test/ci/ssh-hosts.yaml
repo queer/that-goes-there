@@ -1,0 +1,10 @@
+---
+hosts:
+  localhost:
+    host: "localhost"
+    executor: "ssh"
+    remote_user: "runner"
+
+groups:
+  ssh:
+    - "localhost"

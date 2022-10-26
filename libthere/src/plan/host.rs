@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use anyhow::Result;
 use derive_getters::Getters;
 use serde::{Deserialize, Serialize};
 
@@ -21,38 +22,12 @@ pub struct Host {
     #[serde(default = "self::default_ssh_port")]
     port: Port,
     executor: String,
+    remote_user: Option<String>,
 }
 
 impl Host {
-    pub fn new<S: Into<String>>(host: S) -> Self {
-        Self {
-            host: host.into(),
-            port: default_ssh_port(),
-            executor: "ssh".into(),
-        }
-    }
-
-    pub fn new_with_port<S: Into<String>>(host: S, port: Port) -> Self {
-        Self {
-            host: host.into(),
-            port,
-            executor: "ssh".into(),
-        }
-    }
-
-    pub fn new_with_executor<S: Into<String>>(host: S, executor: S) -> Self {
-        Self {
-            host: host.into(),
-            port: default_ssh_port(),
-            executor: executor.into(),
-        }
-    }
-
-    pub fn new_with_port_and_executor<S: Into<String>>(host: S, port: Port, executor: S) -> Self {
-        Self {
-            host: host.into(),
-            port,
-            executor: executor.into(),
-        }
+    pub fn real_remote_user(&self) -> String {
+        #[allow(clippy::or_fun_call)]
+        self.remote_user.clone().unwrap_or("root".to_string())
     }
 }

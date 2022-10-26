@@ -1,0 +1,8 @@
+---
+name: "test plan"
+tasks:
+  - type: "Command"
+    name: "test command"
+    command: "echo 'hello world!'"
+    hosts:
+      - "ssh-group"

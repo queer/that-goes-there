@@ -41,8 +41,11 @@ impl TaskVisitor for PlanningTaskVisitor {
                 for shell_word in shell_words::split(command)? {
                     final_command.push(shell_word.clone());
                 }
-                self.plan
-                    .push(PlannedTask::from_shell_command(name, command)?);
+                self.plan.push(PlannedTask::from_shell_command(
+                    name,
+                    command,
+                    task.hosts(),
+                )?);
             }
             Task::CreateDirectory { name, path, .. } => {
                 self.plan.push(PlannedTask {
@@ -51,6 +54,7 @@ impl TaskVisitor for PlanningTaskVisitor {
                     ensures: vec![Ensure::DirectoryExists {
                         path: path.to_string(),
                     }],
+                    hosts: task.hosts(),
                 });
             }
             Task::TouchFile { name, path, .. } => {
@@ -60,6 +64,7 @@ impl TaskVisitor for PlanningTaskVisitor {
                     ensures: vec![Ensure::ExeExists {
                         exe: "touch".into(),
                     }],
+                    hosts: task.hosts(),
                 });
             }
         }
