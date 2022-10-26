@@ -69,14 +69,12 @@ impl<'a> SimpleExecutor<'a> {
                     if let Ok(logs) = next {
                         let logs = vec![String::from_utf8(logs.to_vec()).unwrap_or_else(|d| format!("got: {:#?}", d))];
                         sink.sink(PartialLogStream::Next(logs)).await.unwrap();
-                        println!("sink stdout");
                     }
                 }
                 Some(next) = stderr.next() => {
                     if let Ok(logs) = next {
                         let logs = vec![String::from_utf8(logs.to_vec()).unwrap_or_else(|d| format!("got: {:#?}", d))];
                         sink.sink(PartialLogStream::Next(logs)).await.unwrap();
-                        println!("sink stderr");
                     }
                 }
                 else => {
@@ -87,12 +85,8 @@ impl<'a> SimpleExecutor<'a> {
 
         info!("task '{}' finished", task.name());
         let mut sink = self.log_sink.lock().await;
-        println!("sink ''");
         sink.sink(PartialLogStream::Next(vec![String::new()]))
             .await?;
-        // Hack to let rx buffer
-        tokio::time::sleep(Duration::from_millis(100)).await;
-        println!("sink end");
         sink.sink(PartialLogStream::End).await?;
 
         Ok(())
@@ -103,7 +97,6 @@ impl<'a> SimpleExecutor<'a> {
 impl<'a> Executor<SimpleExecutionContext> for SimpleExecutor<'a> {
     #[tracing::instrument(skip(self))]
     async fn execute(&self, ctx: Mutex<&mut SimpleExecutionContext>) -> Result<()> {
-        // TODO: What to do about all this cloning? ;-;
         let mut ctx = ctx.lock().await;
         let clone = ctx.clone();
         println!("* Applying plan: {}", ctx.plan().name());
@@ -160,7 +153,6 @@ impl<'a> SimpleLogSink<'a> {
 impl<'a> LogSink for SimpleLogSink<'a> {
     #[tracing::instrument]
     async fn sink(&mut self, logs: PartialLogStream) -> Result<()> {
-        // debug!("simple log sink: sinking {} logs", logs.len());
         self.tx.send(logs).await.context("Failed sending logs")?;
         Ok(())
     }
@@ -185,28 +177,23 @@ impl LogSource for SimpleLogSource {
         if self.ended {
             anyhow::bail!("Log source already ended");
         }
-        // debug!("simple log source: sourcing logs");
         let mut out = vec![];
         match &self.rx.try_recv() {
-            Ok(partial_stream) => {
-                match partial_stream {
-                    PartialLogStream::Next(logs) => {
-                        for log in logs {
-                            out.push(log.clone());
-                        }
-                    }
-                    PartialLogStream::End => {
-                        self.ended = true;
+            Ok(partial_stream) => match partial_stream {
+                PartialLogStream::Next(logs) => {
+                    for log in logs {
+                        out.push(log.clone());
                     }
                 }
-            }
-            Err(mpsc::error::TryRecvError::Empty) => {
-            }
+                PartialLogStream::End => {
+                    self.ended = true;
+                }
+            },
+            Err(mpsc::error::TryRecvError::Empty) => {}
             Err(mpsc::error::TryRecvError::Disconnected) => {
                 return Err(anyhow::anyhow!("sink lost"));
             }
         }
-        // debug!("simple log source: sourced {} logs", &out.len());
         if self.ended {
             Ok(PartialLogStream::End)
         } else {
@@ -239,8 +226,14 @@ mod test {
         let mut ctx = SimpleExecutionContext::new("test", plan);
         let mut executor = SimpleExecutor::new(&tx);
         executor.execute(Mutex::new(&mut ctx)).await?;
-        assert_eq!(PartialLogStream::Next(vec!["hello\n".into()]), log_source.source().await?);
-        assert_eq!(PartialLogStream::Next(vec![String::new()]), log_source.source().await?);
+        assert_eq!(
+            PartialLogStream::Next(vec!["hello\n".into()]),
+            log_source.source().await?
+        );
+        assert_eq!(
+            PartialLogStream::Next(vec![String::new()]),
+            log_source.source().await?
+        );
         assert_eq!(PartialLogStream::End, log_source.source().await?);
         Ok(())
     }
