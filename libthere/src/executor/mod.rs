@@ -9,6 +9,12 @@ pub mod simple;
 
 pub type Logs = Vec<String>;
 
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum PartialLogStream {
+    Next(Logs),
+    End,
+}
+
 #[async_trait]
 pub trait Executor<T: ExecutionContext + std::fmt::Debug>: std::fmt::Debug {
     async fn execute(&self, ctx: Mutex<&mut T>) -> Result<()>;
@@ -23,10 +29,10 @@ pub trait ExecutionContext: std::fmt::Debug {
 
 #[async_trait]
 pub trait LogSink: std::fmt::Debug {
-    async fn sink(&mut self, logs: Logs) -> Result<()>;
+    async fn sink(&mut self, logs: PartialLogStream) -> Result<()>;
 }
 
 #[async_trait]
 pub trait LogSource: std::fmt::Debug {
-    async fn source(&mut self) -> Result<Logs>;
+    async fn source(&mut self) -> Result<PartialLogStream>;
 }

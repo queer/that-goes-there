@@ -2,7 +2,7 @@ use super::Interactive;
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use clap::ArgMatches;
-use libthere::executor::{self, Executor, LogSource};
+use libthere::executor::{Executor, LogSource, PartialLogStream};
 use libthere::{log::*, plan};
 use tokio::fs::read_to_string;
 use tokio::sync::{mpsc, Mutex};
@@ -71,12 +71,16 @@ impl PlanCommand {
         let (tx, rx) = mpsc::channel(1024);
         let mut log_source = libthere::executor::simple::SimpleLogSource::new(rx);
         let join_handle = tokio::task::spawn(async move {
-            'outer: while let Ok(logs) = log_source.source().await {
-                for log in logs {
-                    if log == executor::simple::MAGIC_MESSAGE_THAT_KILLS_THE_TX {
+            'outer: while let Ok(partial_stream) = log_source.source().await {
+                match partial_stream {
+                    PartialLogStream::Next(logs) => {
+                        for log in logs {
+                            println!("{}", log);
+                        }
+                    }
+                    PartialLogStream::End => {
                         break 'outer;
                     }
-                    println!("{}", log);
                 }
             }
             info!("join finished :D");

@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::sync::Arc;
+use std::time::Duration;
 use std::{future::Future, marker::PhantomData};
 
 use anyhow::{Context, Result};
@@ -7,14 +8,12 @@ use async_trait::async_trait;
 use derive_getters::Getters;
 use tokio::sync::{mpsc, Mutex};
 
-use super::{ExecutionContext, Executor, LogSink, LogSource, Logs};
+use super::{ExecutionContext, Executor, LogSink, LogSource, Logs, PartialLogStream};
 use crate::log::*;
 use crate::plan;
 
-pub type SimpleLogTx = mpsc::Sender<Logs>;
-pub type SimpleLogRx = mpsc::Receiver<Logs>;
-
-pub const MAGIC_MESSAGE_THAT_KILLS_THE_TX: &str = "MCq4,v%-WpTaAv?e-fW$m$s:q~Re3-rYY)v!.ftA''iemd!/;:&^$sR@Ed<>U_yLL++q@yo@d|.zj4hLoMM.r:L'_nU@ps$ao--v_%^u)Rvv-cok@,_r?.:EK@/p-TXA,LdYL&qJNo9qCxxs&k7XAxP-=^Ty>gCEhmUx^-`~-;^j'#=4v7fUt.j9UR<,H#F;'9_UC3dq&g/i$i:PXkHu&^iU43$R~)?':s!qev-@*$Amr-V!KU-*z?-,F@MF7^#.%ALJ+cz^*Lx/-:X?&NP#j$aqrsa$#,|9zNEh@zLon`aHK@V-.#@.7U$/R7W>Nu,^:CvEHVjbeYJx?z3#kXKf#N^M/kh+^TwtnfkN#pFV'@Jhp;*,3b#kyt^=&jeo+3?^|k9s`Lzsvxa:div3V<jH~*xU`&h.EH#L^ipw";
+pub type SimpleLogTx = mpsc::Sender<PartialLogStream>;
+pub type SimpleLogRx = mpsc::Receiver<PartialLogStream>;
 
 #[derive(Getters, Debug, Clone)]
 pub struct SimpleExecutor<'a> {
@@ -69,13 +68,15 @@ impl<'a> SimpleExecutor<'a> {
                 Some(next) = stdout.next() => {
                     if let Ok(logs) = next {
                         let logs = vec![String::from_utf8(logs.to_vec()).unwrap_or_else(|d| format!("got: {:#?}", d))];
-                        Self::sink_logs(&mut sink, logs).await.unwrap();
+                        sink.sink(PartialLogStream::Next(logs)).await.unwrap();
+                        println!("sink stdout");
                     }
                 }
                 Some(next) = stderr.next() => {
                     if let Ok(logs) = next {
                         let logs = vec![String::from_utf8(logs.to_vec()).unwrap_or_else(|d| format!("got: {:#?}", d))];
-                        Self::sink_logs(&mut sink, logs).await.unwrap();
+                        sink.sink(PartialLogStream::Next(logs)).await.unwrap();
+                        println!("sink stderr");
                     }
                 }
                 else => {
@@ -86,19 +87,15 @@ impl<'a> SimpleExecutor<'a> {
 
         info!("task '{}' finished", task.name());
         let mut sink = self.log_sink.lock().await;
-        // TODO: Figure out how to not need this...
-        Self::sink_logs(&mut sink, vec![MAGIC_MESSAGE_THAT_KILLS_THE_TX.to_string()]).await?;
+        println!("sink ''");
+        sink.sink(PartialLogStream::Next(vec![String::new()]))
+            .await?;
+        // Hack to let rx buffer
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        println!("sink end");
+        sink.sink(PartialLogStream::End).await?;
 
         Ok(())
-    }
-
-    #[tracing::instrument]
-    async fn sink_logs(sink: &mut SimpleLogSink<'a>, logs: Logs) -> Result<()> {
-        let len = logs.len();
-        debug!("simple execution context: sinking {} logs", &len);
-        let out = sink.sink(logs).await;
-        debug!("simple execution context: sank {} logs", &len);
-        out
     }
 }
 
@@ -162,8 +159,8 @@ impl<'a> SimpleLogSink<'a> {
 #[async_trait]
 impl<'a> LogSink for SimpleLogSink<'a> {
     #[tracing::instrument]
-    async fn sink(&mut self, logs: Logs) -> Result<()> {
-        debug!("simple log sink: sinking {} logs", logs.len());
+    async fn sink(&mut self, logs: PartialLogStream) -> Result<()> {
+        // debug!("simple log sink: sinking {} logs", logs.len());
         self.tx.send(logs).await.context("Failed sending logs")?;
         Ok(())
     }
@@ -172,40 +169,49 @@ impl<'a> LogSink for SimpleLogSink<'a> {
 #[derive(Debug)]
 pub struct SimpleLogSource {
     rx: SimpleLogRx,
+    ended: bool,
 }
 
 impl SimpleLogSource {
     pub fn new(rx: SimpleLogRx) -> Self {
-        Self { rx }
+        Self { rx, ended: false }
     }
 }
 
 #[async_trait]
 impl LogSource for SimpleLogSource {
     #[tracing::instrument]
-    async fn source(&mut self) -> Result<Logs> {
+    async fn source(&mut self) -> Result<PartialLogStream> {
+        if self.ended {
+            anyhow::bail!("Log source already ended");
+        }
         // debug!("simple log source: sourcing logs");
         let mut out = vec![];
-        loop {
-            match &self.rx.try_recv() {
-                Ok(logs) => {
-                    if logs.is_empty() {
-                        break;
+        match &self.rx.try_recv() {
+            Ok(partial_stream) => {
+                match partial_stream {
+                    PartialLogStream::Next(logs) => {
+                        for log in logs {
+                            out.push(log.clone());
+                        }
                     }
-                    for log in logs {
-                        out.push(log.clone());
+                    PartialLogStream::End => {
+                        self.ended = true;
                     }
                 }
-                Err(mpsc::error::TryRecvError::Empty) => {
-                    break;
-                }
-                Err(mpsc::error::TryRecvError::Disconnected) => {
-                    return Err(anyhow::anyhow!("sink lost"));
-                }
+            }
+            Err(mpsc::error::TryRecvError::Empty) => {
+            }
+            Err(mpsc::error::TryRecvError::Disconnected) => {
+                return Err(anyhow::anyhow!("sink lost"));
             }
         }
         // debug!("simple log source: sourced {} logs", &out.len());
-        Ok(out)
+        if self.ended {
+            Ok(PartialLogStream::End)
+        } else {
+            Ok(PartialLogStream::Next(out))
+        }
     }
 }
 
@@ -233,8 +239,9 @@ mod test {
         let mut ctx = SimpleExecutionContext::new("test", plan);
         let mut executor = SimpleExecutor::new(&tx);
         executor.execute(Mutex::new(&mut ctx)).await?;
-        let logs = log_source.source().await?;
-        assert_eq!(vec!["hello\n"], logs);
+        assert_eq!(PartialLogStream::Next(vec!["hello\n".into()]), log_source.source().await?);
+        assert_eq!(PartialLogStream::Next(vec![String::new()]), log_source.source().await?);
+        assert_eq!(PartialLogStream::End, log_source.source().await?);
         Ok(())
     }
 }
