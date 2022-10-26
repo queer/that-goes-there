@@ -1,0 +1,15 @@
+---
+hosts:
+  localhost:
+    host: "localhost"
+    executor: "ssh"
+    remote_user: "amy"
+  ssh-localhost:
+    host: "localhost"
+    executor: "ssh"
+    remote_user: "amy"
+
+groups:
+  ssh-group:
+    - "localhost"
+    - "ssh-localhost"

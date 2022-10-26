@@ -108,23 +108,27 @@ impl PlanCommand {
                 for (group_name, group_hosts) in hosts.groups() {
                     println!("*** applying plan to group: {} ***", group_name);
                     for hostname in group_hosts {
-                        let host = hosts
-                            .hosts()
-                            .get(hostname)
-                            .with_context(|| format!("couldn't find host {}", hostname))?;
-                        let executor = host.executor();
-                        let executor_type: ExecutorType = match executor.as_str() {
-                            "simple" => ExecutorType::Local,
-                            "local" => ExecutorType::Local,
-                            "ssh" => ExecutorType::Ssh,
-                            _ => anyhow::bail!("unknown executor type: {}", executor),
-                        };
-                        futures.push(self.do_apply(plan.clone(), hostname, host, executor_type, matches));
+                        let plan = plan.plan_for_host(hostname, &hosts);
+                        if !plan.blueprint().is_empty() {
+                            let host = &hosts
+                                .hosts()
+                                .get(hostname)
+                                .with_context(|| format!("couldn't find host {}", hostname))?;
+                            let executor = host.executor();
+                            let executor_type: ExecutorType = match executor.as_str() {
+                                "simple" => ExecutorType::Local,
+                                "local" => ExecutorType::Local,
+                                "ssh" => ExecutorType::Ssh,
+                                _ => anyhow::bail!("unknown executor type: {}", executor),
+                            };
+                            futures.push(self.do_apply(plan, hostname.clone(), host, executor_type, matches));
+                            println!("*** prepared plan for host: {}", &hostname);
+                        } else {
+                            println!("*** skippinng host, no tasks: {}", &hostname);
+                        }
                     }
                 }
-                for future in futures {
-                    future.await?;
-                }
+                futures::future::join_all(futures).await;
                 info!("done!");
             }
         } else {
@@ -140,20 +144,21 @@ impl PlanCommand {
     async fn do_apply(
         &self,
         plan: plan::Plan,
-        hostname: &String,
+        hostname: String,
         host: &Host,
         executor_type: ExecutorType,
         matches: &ArgMatches,
     ) -> Result<()> {
         let (tx, rx) = mpsc::channel(1024);
         let mut log_source = libthere::executor::simple::SimpleLogSource::new(rx);
-        let hostname = hostname.clone();
+        let log_hostname = hostname.clone();
+        let ssh_hostname = hostname.clone();
         let join_handle = tokio::task::spawn(async move {
             'outer: while let Ok(partial_stream) = log_source.source().await {
                 match partial_stream {
                     PartialLogStream::Next(logs) => {
                         for log in logs {
-                            println!("{}: {}", hostname, log);
+                            println!("{}: {}", log_hostname, log);
                         }
                     }
                     PartialLogStream::End => {
@@ -191,7 +196,7 @@ impl PlanCommand {
                 let mut context = ssh::SshExecutionContext::new("test", plan);
                 let context = Mutex::new(&mut context);
                 #[allow(clippy::or_fun_call)]
-                let executor = ssh::SshExecutor::new(host, &tx, ssh_key, ssh_key_passphrase);
+                let executor = ssh::SshExecutor::new(host, ssh_hostname.into(), &tx, ssh_key, ssh_key_passphrase);
                 executor.execute(context).await?;
             }
             #[allow(unreachable_patterns)]

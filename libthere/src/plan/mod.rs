@@ -136,7 +136,7 @@ impl Plan {
         Ok((me, errors))
     }
 
-    pub fn plan_for_host(&self, host: String, hosts: HostConfig) -> Plan {
+    pub fn plan_for_host(&self, host: &String, hosts: &HostConfig) -> Plan {
         Plan {
             name: self.name.clone(),
             blueprint: self
@@ -146,10 +146,10 @@ impl Plan {
                     let group_names: Vec<String> = hosts
                         .groups()
                         .iter()
-                        .filter(|(_name, hosts)| hosts.contains(&host))
+                        .filter(|(_name, hosts)| hosts.contains(host))
                         .map(|(name, _hosts)| name.clone())
                         .collect();
-                    if task.hosts().contains(&host)
+                    if task.hosts().contains(host)
                         || task.hosts().iter().any(|host| group_names.contains(host))
                     {
                         Some(task.clone())

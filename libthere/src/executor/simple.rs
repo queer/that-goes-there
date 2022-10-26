@@ -99,15 +99,15 @@ impl<'a> Executor<SimpleExecutionContext> for SimpleExecutor<'a> {
     async fn execute(&self, ctx: Mutex<&mut SimpleExecutionContext>) -> Result<()> {
         let mut ctx = ctx.lock().await;
         let clone = ctx.clone();
-        println!("* Applying plan: {}", ctx.plan().name());
-        println!("* Steps: {}", ctx.plan().blueprint().len());
+        println!("* applying plan: {}", ctx.plan().name());
+        println!("* steps: {}", ctx.plan().blueprint().len());
         info!("applying plan: {}", ctx.plan().name());
         for task in ctx.plan.blueprint().iter() {
             debug!("simple executor: executing task: {}", task.name());
             self.execute_task(task, &mut clone.clone()).await?;
         }
         info!("plan applied: {}", ctx.plan().name());
-        println!("* Finished applying plan: {}", ctx.plan().name());
+        println!("* finished applying plan: {}", ctx.plan().name());
         Ok(())
     }
 }
