@@ -142,7 +142,11 @@ impl<'a> Executor<'a, SimpleExecutionContext<'a>> for SimpleExecutor<'a> {
             ctx.plan().blueprint().len()
         ))
         .await?;
-        self.log_sink.lock().await.sink(PartialLogStream::End).await?;
+        self.log_sink
+            .lock()
+            .await
+            .sink(PartialLogStream::End)
+            .await?;
         Ok(())
     }
 
@@ -284,8 +288,14 @@ mod test {
             PartialLogStream::Next(vec!["hello\n".into()]),
             log_source.source().await?
         );
-        assert_eq!(PartialLogStream::Next(vec![String::new()]), log_source.source().await?);
-        assert_eq!(PartialLogStream::Next(vec!["*** finished applying plan: test (1/1)".into()]), log_source.source().await?);
+        assert_eq!(
+            PartialLogStream::Next(vec![String::new()]),
+            log_source.source().await?
+        );
+        assert_eq!(
+            PartialLogStream::Next(vec!["*** finished applying plan: test (1/1)".into()]),
+            log_source.source().await?
+        );
         assert_eq!(PartialLogStream::End, log_source.source().await?);
         Ok(())
     }

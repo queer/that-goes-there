@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 use anyhow::Result;
 use clap::{command, Arg, ArgAction};
 use tracing_subscriber::filter::LevelFilter;
