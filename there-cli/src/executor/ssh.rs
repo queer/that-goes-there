@@ -160,7 +160,7 @@ impl<'a> Executor<'a, SshExecutionContext<'a>> for SshExecutor<'a> {
             }
             info!("plan applied: {}", ctx.plan().name());
             println!(
-                "* finished applying plan: {} -> {} ({}/{})",
+                "*** finished applying plan: {} -> {} ({}/{})",
                 ctx.plan().name(),
                 &self.hostname,
                 self.tasks_completed,

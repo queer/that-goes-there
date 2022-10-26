@@ -1,9 +1,10 @@
 ---
 hosts:
-  localhost:
-    host: "10.42.0.69"
+  broken-ssh:
+    host: "localhost"
+    port: 2222
     executor: "ssh"
-    remote_user: "amy"
+    remote_user: "root"
   ssh-localhost:
     host: "localhost"
     executor: "ssh"
@@ -11,5 +12,5 @@ hosts:
 
 groups:
   ssh-group:
-    - "localhost"
+    - "broken-ssh"
     - "ssh-localhost"

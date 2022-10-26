@@ -121,7 +121,7 @@ impl<'a> Executor<'a, SimpleExecutionContext<'a>> for SimpleExecutor<'a> {
         }
         info!("plan applied: {}", ctx.plan().name());
         println!(
-            "* finished applying plan: {} ({}/{})",
+            "*** finished applying plan: {} ({}/{})",
             ctx.plan().name(),
             self.tasks_completed(),
             ctx.plan().blueprint().len()

@@ -140,15 +140,30 @@ impl PlanCommand {
                     match result {
                         Ok((host, tasks_completed)) => {
                             println!(
-                                "*** completed plan for host: {}: {}/{} ***",
+                                "*** completed plan: {} for host: {}: {}/{} ***",
+                                &plan.name(),
                                 host,
                                 tasks_completed,
                                 plan.blueprint().len()
                             );
                         }
                         Err(e) => {
-                            // TODO: Figure out a better way to pull the above information back out of the executor...
-                            error!("error applying plan: {}", e);
+                            warn!("error applying plan: {}", e);
+                            #[allow(clippy::single_match)]
+                            match e.downcast()? {
+                                PlanApplyErrors::PlanApplyFailed(host, tasks_completed, e) => {
+                                    println!(
+                                        "*** failed plan: {} for host: {}: {}/{} ***",
+                                        &plan.name(),
+                                        host,
+                                        tasks_completed,
+                                        plan.blueprint().len()
+                                    );
+                                    println!("*** error: {}", e);
+                                }
+                                #[allow(unreachable_patterns)]
+                                _ => unreachable!(),
+                            }
                         }
                     }
                 }
@@ -208,7 +223,7 @@ impl PlanCommand {
                         plan.blueprint().len()
                     )
                 })?;
-                *executor.tasks_completed()
+                Ok(*executor.tasks_completed())
             }
             ExecutorType::Ssh => {
                 let ssh_key_file = matches
@@ -231,7 +246,7 @@ impl PlanCommand {
                 #[allow(clippy::or_fun_call)]
                 let mut executor =
                     ssh::SshExecutor::new(host, ssh_hostname, &tx, ssh_key, ssh_key_passphrase)?;
-                executor.execute(context).await.with_context(|| {
+                match executor.execute(context).await.with_context(|| {
                     format!(
                         "failed to apply plan {} to host {}: {}/{} tasks finished",
                         plan.name(),
@@ -239,8 +254,14 @@ impl PlanCommand {
                         executor.tasks_completed(),
                         plan.blueprint().len()
                     )
-                })?;
-                *executor.tasks_completed()
+                }) {
+                    Ok(_) => Ok(*executor.tasks_completed()),
+                    Err(e) => Err(PlanApplyErrors::PlanApplyFailed(
+                        hostname.clone(),
+                        *executor.tasks_completed(),
+                        e,
+                    )),
+                }
             }
             #[allow(unreachable_patterns)]
             _ => {
@@ -249,7 +270,10 @@ impl PlanCommand {
         };
         info!("finished applying plan");
         join_handle.await?;
-        Ok((hostname, tasks_completed))
+        match tasks_completed {
+            Ok(tasks_completed) => Ok((hostname, tasks_completed)),
+            Err(e) => Err(anyhow::Error::new(e)),
+        }
     }
 }
 
@@ -280,3 +304,9 @@ impl<'a> super::Command<'a> for PlanCommand {
 }
 
 impl<'a> super::Interactive<'a> for PlanCommand {}
+
+#[derive(thiserror::Error, Debug)]
+enum PlanApplyErrors {
+    #[error("failed to apply plan to host: {0} ({1} tasks complete): {2}")]
+    PlanApplyFailed(String, u32, anyhow::Error),
+}

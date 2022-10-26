@@ -5,8 +5,8 @@ services:
   ssh:
     ports:
       - '2222:22'
-    volumes:
-      - './env/authorized_keys:/root/.ssh/authorized_keys:ro'
-    environment:
-      - SSH_ENABLE_ROOT=true
+    # volumes:
+    #   - './env/authorized_keys:/root/.ssh/authorized_keys:ro'
+    # environment:
+    #   - SSH_ENABLE_ROOT=true
     image: 'docker.io/panubo/sshd:1.4.0'
