@@ -17,3 +17,9 @@ pre-commit autoupdate
 
 needed a config management tool that could use ssh and agents as transports
 dynamically.
+
+## todo
+
+- pretty tui with [cursive](https://crates.io/crates/cursive) for log streaming
+- send command logs to their own sink for tui display eventually
+- server+agent executor
