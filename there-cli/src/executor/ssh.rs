@@ -62,7 +62,8 @@ impl<'a> SshExecutor<'a> {
         ctx: &mut SshExecutionContext<'a>,
         channel: &mut thrussh::client::Channel,
     ) -> Result<()> {
-        self.sink_one(format!("** executing task: {}", task.name())).await?;
+        self.sink_one(format!("** executing task: {}", task.name()))
+            .await?;
         info!("executing task: {}", task.name());
 
         // TODO: Figure out env etc...
@@ -130,7 +131,8 @@ impl<'a> Executor<'a, SshExecutionContext<'a>> for SshExecutor<'a> {
         debug!("awaiting ctx lock...");
         let ctx = ctx.lock().await;
         debug!("got it!");
-        self.sink_one(format!("* steps: {}", ctx.plan().blueprint().len())).await?;
+        self.sink_one(format!("* steps: {}", ctx.plan().blueprint().len()))
+            .await?;
 
         // Attempt to get a working SSH client first; don't waste time.
         let sh = SshClient;
@@ -168,7 +170,8 @@ impl<'a> Executor<'a, SshExecutionContext<'a>> for SshExecutor<'a> {
                 &self.hostname,
                 self.tasks_completed,
                 ctx.plan().blueprint().len(),
-            )).await?;
+            ))
+            .await?;
             let mut sink = self.log_sink.lock().await;
             sink.sink(PartialLogStream::End).await?;
             Ok(())

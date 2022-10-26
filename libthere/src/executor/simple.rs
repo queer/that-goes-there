@@ -126,8 +126,10 @@ impl<'a> Executor<'a, SimpleExecutionContext<'a>> for SimpleExecutor<'a> {
     async fn execute(&mut self, ctx: Mutex<&'a mut SimpleExecutionContext>) -> Result<()> {
         let mut ctx = ctx.lock().await;
         let clone = ctx.clone();
-        self.sink_one(format!("* applying plan: {}", ctx.plan().name())).await?;
-        self.sink_one(format!("* steps: {}", ctx.plan().blueprint().len())).await?;
+        self.sink_one(format!("* applying plan: {}", ctx.plan().name()))
+            .await?;
+        self.sink_one(format!("* steps: {}", ctx.plan().blueprint().len()))
+            .await?;
         info!("applying plan: {}", ctx.plan().name());
         for task in ctx.plan.blueprint().iter() {
             debug!("simple executor: executing task: {}", task.name());
@@ -139,7 +141,8 @@ impl<'a> Executor<'a, SimpleExecutionContext<'a>> for SimpleExecutor<'a> {
             ctx.plan().name(),
             self.tasks_completed(),
             ctx.plan().blueprint().len()
-        )).await?;
+        ))
+        .await?;
         Ok(())
     }
 
@@ -270,13 +273,18 @@ mod test {
         let mut executor = SimpleExecutor::new(&tx);
         executor.execute(Mutex::new(&mut ctx)).await?;
         assert_eq!(
-            PartialLogStream::Next(vec!["hello\n".into()]),
+            PartialLogStream::Next(vec!["* applying plan: test".into()]),
             log_source.source().await?
         );
         assert_eq!(
-            PartialLogStream::Next(vec![String::new()]),
+            PartialLogStream::Next(vec!["* steps: 1".into()]),
             log_source.source().await?
         );
+        assert_eq!(
+            PartialLogStream::Next(vec!["hello\n".into()]),
+            log_source.source().await?
+        );
+        assert_eq!(PartialLogStream::Next(vec![String::new()]), log_source.source().await?);
         assert_eq!(PartialLogStream::End, log_source.source().await?);
         Ok(())
     }
