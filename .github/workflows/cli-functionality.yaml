@@ -1,12 +1,11 @@
 name: "Test CLI functionality"
 on:
-  workflow_run:
-    workflows:
-      - "Run all tests"
+  push:
     branches:
       - "mistress"
-    types:
-      - "completed"
+  pull_request:
+    branches:
+      - "mistress"
 
 jobs:
   run-tests:
