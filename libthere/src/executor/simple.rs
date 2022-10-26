@@ -36,7 +36,7 @@ impl<'a> SimpleExecutor<'a> {
             .await
             .sink_one(msg.into().clone())
             .await
-            .context("Failed to sink log message.")
+            .context("failed to sink log message.")
     }
 
     #[tracing::instrument(skip(self))]
@@ -113,7 +113,6 @@ impl<'a> SimpleExecutor<'a> {
         let mut sink = self.log_sink.lock().await;
         sink.sink(PartialLogStream::Next(vec![String::new()]))
             .await?;
-        sink.sink(PartialLogStream::End).await?;
         self.tasks_completed += 1;
 
         Ok(())
@@ -143,6 +142,7 @@ impl<'a> Executor<'a, SimpleExecutionContext<'a>> for SimpleExecutor<'a> {
             ctx.plan().blueprint().len()
         ))
         .await?;
+        self.log_sink.lock().await.sink(PartialLogStream::End).await?;
         Ok(())
     }
 
