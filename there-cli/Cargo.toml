@@ -7,8 +7,7 @@ edition = "2021"
 
 [dependencies]
 libthere = { path = "../libthere" }
-
-anyhow = "1.0.66"
+anyhow = { version = "1.0.66", features = ["backtrace"] }
 clap = { version = "4.0.18", features = ["cargo"] }
 dialoguer = { version = "0.10.2", features = ["completion", "fuzzy-matcher", "fuzzy-select", "history"] }
 time = { version = "0.3.16", features = ["macros"] }
@@ -21,3 +20,9 @@ thiserror = "1.0.37"
 reqwest = "0.11.12"
 serde_yaml = "0.9.14"
 tracing = { version = "0.1.37", features = ["async-await"] }
+thrussh = { version = "0.33.5", features = ["openssl"] }
+thrussh-keys = { version = "0.21.0", features = ["openssl"] }
+derive-getters = "0.2.0"
+tokio-stream = "0.1.11"
+tokio-util = "0.7.4"
+futures = "0.3.25"

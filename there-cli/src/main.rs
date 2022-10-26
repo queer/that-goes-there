@@ -6,6 +6,7 @@ use tracing_subscriber::util::SubscriberInitExt;
 use crate::commands::Command;
 
 mod commands;
+mod executor;
 
 use libthere::log::*;
 
@@ -55,7 +56,29 @@ async fn main() -> Result<()> {
                                 .short('d')
                                 .long("dry")
                                 .action(ArgAction::SetTrue),
-                        ),
+                        )
+                        .arg(
+                            Arg::new("executor")
+                                .help("Executor to apply the plan with. Has no effect if -d is specified. No default. Options are: local, ssh.")
+                                .short('e')
+                                .long("executor")
+                        )
+                        .arg(
+                            Arg::new("ssh-key")
+                                .help("SSH **PRIVATE** keyfile to use for the SSH executor. Has no effect if -d is specified, or if -e is not 'ssh'. No default.")
+                                .long("ssh-key")
+                        )
+                        .arg(
+                            Arg::new("ssh-user")
+                                .help("SSH user to use for the SSH executor. Has no effect if -d is specified, or if -e is not 'ssh'. No default.")
+                                .long("ssh-user")
+                        )
+                        .arg(
+                            Arg::new("ssh-key-passphrase")
+                                .help("File to use to unlock the SSH private key. Has no effect if -d is specified, or if -e is not 'ssh'. No default.")
+                                .long("ssh-key-passphrase")
+                        )
+                        ,
                 )
         )
         .subcommand_required(true)

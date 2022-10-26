@@ -16,7 +16,9 @@ pub enum PartialLogStream {
 }
 
 #[async_trait]
-pub trait Executor<T: ExecutionContext + std::fmt::Debug>: std::fmt::Debug {
+pub trait Executor<T: ExecutionContext + std::fmt::Debug = simple::SimpleExecutionContext>:
+    std::fmt::Debug + Send + Sync
+{
     async fn execute(&self, ctx: Mutex<&mut T>) -> Result<()>;
 }
 

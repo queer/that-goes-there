@@ -2,10 +2,18 @@ use super::Interactive;
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use clap::ArgMatches;
-use libthere::executor::{Executor, LogSource, PartialLogStream};
+use libthere::executor::{simple, Executor, LogSource, PartialLogStream};
 use libthere::{log::*, plan};
-use tokio::fs::read_to_string;
+use tokio::fs::{self, read_to_string};
 use tokio::sync::{mpsc, Mutex};
+
+use crate::executor::ssh;
+
+#[derive(Clone, Debug)]
+pub enum ExecutorType {
+    Local,
+    Ssh,
+}
 
 pub struct PlanCommand;
 
@@ -54,7 +62,13 @@ impl PlanCommand {
                 }
             } else {
                 info!("applying plan...");
-                self.do_apply(plan, &()).await?;
+                let executor_type: ExecutorType =
+                    match matches.get_one::<String>("executor").unwrap().as_str() {
+                        "local" => ExecutorType::Local,
+                        "ssh" => ExecutorType::Ssh,
+                        _ => unreachable!(),
+                    };
+                self.do_apply(plan, executor_type, matches).await?;
                 info!("done!");
             }
         } else {
@@ -67,7 +81,12 @@ impl PlanCommand {
         Ok(())
     }
 
-    async fn do_apply<'a>(&self, plan: plan::Plan, _lifetime_eater: &'a ()) -> Result<()> {
+    async fn do_apply(
+        &self,
+        plan: plan::Plan,
+        executor_type: ExecutorType,
+        matches: &ArgMatches,
+    ) -> Result<()> {
         let (tx, rx) = mpsc::channel(1024);
         let mut log_source = libthere::executor::simple::SimpleLogSource::new(rx);
         let join_handle = tokio::task::spawn(async move {
@@ -86,9 +105,44 @@ impl PlanCommand {
             info!("join finished :D");
         });
 
-        let executor = libthere::executor::simple::SimpleExecutor::new(&tx);
-        let mut context = libthere::executor::simple::SimpleExecutionContext::new("test", plan);
-        executor.execute(Mutex::new(&mut context)).await?;
+        // TODO: Figure out this generics mess lmao
+        match executor_type {
+            ExecutorType::Local => {
+                let mut context = simple::SimpleExecutionContext::new("test", plan);
+                let context = Mutex::new(&mut context);
+                let executor = simple::SimpleExecutor::new(&tx);
+                executor.execute(context).await?;
+            }
+            ExecutorType::Ssh => {
+                let ssh_key_file = matches
+                    .get_one::<String>("ssh-key")
+                    .context("--ssh-key wasn't passed")?;
+                let ssh_key = fs::read_to_string(ssh_key_file)
+                    .await
+                    .context("Failed reading ssh key file")?;
+
+                let ssh_user = matches
+                    .get_one::<String>("ssh-user")
+                    .context("--ssh-user wasn't passed")?;
+                let ssh_key_passphrase = matches.get_one::<String>("ssh-key-passphrase").map(|s| {
+                    std::fs::read_to_string(s).context("Failed to read ssh key passphrase")
+                });
+                let ssh_key_passphrase = match ssh_key_passphrase {
+                    Some(Ok(passphrase)) => Some(passphrase),
+                    Some(Err(e)) => return Err(e),
+                    None => None,
+                };
+                let mut context = ssh::SshExecutionContext::new("test", plan);
+                let context = Mutex::new(&mut context);
+                let executor =
+                    ssh::SshExecutor::new(&tx, ssh_user.clone(), ssh_key, ssh_key_passphrase);
+                executor.execute(context).await?;
+            }
+            #[allow(unreachable_patterns)]
+            _ => {
+                unreachable!()
+            }
+        };
         info!("finished applying plan");
         join_handle.await?;
         Ok(())
