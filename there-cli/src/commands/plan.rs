@@ -51,7 +51,7 @@ impl PlanCommand {
         let hosts = self.read_hosts_config(hosts_file).await?;
 
         let plan = fs::read_to_string(file).await?;
-        let mut task_set: libthere::plan::TaskSet =
+        let task_set: libthere::plan::TaskSet =
             serde_yaml::from_str(plan.as_str()).context("Failed deserializing plan")?;
         task_set.plan().await?;
         info!("plan is valid.");
@@ -92,7 +92,7 @@ impl PlanCommand {
     ) -> Result<()> {
         let file = self.read_argument_with_validator(matches, "file", &mut |_| Ok(()))?;
         let plan = fs::read_to_string(file).await?;
-        let mut task_set: libthere::plan::TaskSet =
+        let task_set: libthere::plan::TaskSet =
             serde_yaml::from_str(plan.as_str()).context("Failed deserializing plan")?;
         let hosts_file = self.read_argument_with_validator(matches, "hosts", &mut |_| Ok(()))?;
         let hosts = self.read_hosts_config(hosts_file).await?;

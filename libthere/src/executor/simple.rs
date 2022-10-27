@@ -16,6 +16,8 @@ use crate::plan;
 pub type SimpleLogTx = mpsc::Sender<PartialLogStream>;
 pub type SimpleLogRx = mpsc::Receiver<PartialLogStream>;
 
+/// A simple [`Executor`] implementation that executes [`Task`]s on
+/// `localhost`.
 #[derive(Getters, Debug, Clone)]
 pub struct SimpleExecutor<'a> {
     #[getter(skip)]
@@ -212,6 +214,8 @@ impl<'a> ExecutionContext for SimpleExecutionContext<'a> {
     }
 }
 
+/// A basic [`LogSink`] implementation that pushes logs into a
+/// [`tokio::mpsc::Sender`].
 #[derive(Getters, Debug, Clone)]
 pub struct SimpleLogSink<'a> {
     tx: &'a SimpleLogTx,
@@ -236,6 +240,8 @@ impl<'a> LogSink for SimpleLogSink<'a> {
     }
 }
 
+/// A basic [`LogSource`] implementation that pulls logs from a
+/// [`tokio::mpsc::Receiver`].
 #[derive(Debug)]
 pub struct SimpleLogSource {
     rx: SimpleLogRx,

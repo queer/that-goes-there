@@ -7,12 +7,16 @@ use derive_getters::Getters;
 use super::{Ensure, PlannedTask, Task};
 use crate::log::*;
 
+/// A visitor for a [`Task`] in a [`TaskSet`]. Task visitors are used to do
+/// things like compile the [`Plan`] for a `TaskSet`.
 pub trait TaskVisitor: Send + std::fmt::Debug {
     type Out;
 
     fn visit_task(&mut self, task: &Task) -> Result<Self::Out>;
 }
 
+/// An implementation of [`TaskVisitor`] that compiles a [`Task`] into a
+/// `Vec<PlannedTask>`.
 #[derive(Getters, Debug, Clone)]
 pub struct PlanningTaskVisitor {
     name: String,
@@ -31,6 +35,8 @@ impl PlanningTaskVisitor {
 impl TaskVisitor for PlanningTaskVisitor {
     type Out = ();
 
+    /// Visits the given task and compiles it into a [`PlannedTask`] that is
+    /// stored in the visitor's state.
     #[tracing::instrument]
     fn visit_task(&mut self, task: &Task) -> Result<Self::Out> {
         debug!("planning task visitor: visiting task: {}", &task.name());
@@ -75,11 +81,4 @@ impl TaskVisitor for PlanningTaskVisitor {
         );
         Ok(())
     }
-}
-
-#[async_trait]
-pub trait PlannedTaskVisitor: Send {
-    type Out;
-
-    async fn visit_planned_task(&mut self, task: &PlannedTask) -> Result<Self::Out>;
 }

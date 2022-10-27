@@ -11,10 +11,14 @@ use crate::log::*;
 pub mod host;
 pub mod visitor;
 
-pub use visitor::{PlannedTaskVisitor, TaskVisitor};
+pub use visitor::TaskVisitor;
 
 use self::host::{Host, HostConfig};
 
+/// An unplanned set of [`Task`]s to be executed. [`TaskSet`]s have no
+/// validations applied to them outside of ensuring that they parse into
+/// `Task`s. Validations necessary for applying a `Task` are generated during
+/// the planning phase.
 #[derive(Getters, Debug, Clone, Serialize, Deserialize)]
 pub struct TaskSet {
     name: String,
@@ -35,31 +39,35 @@ impl TaskSet {
         self.tasks.push(task);
     }
 
+    /// Generate a [`Plan`] from this `TaskSet`. Consumes this `TaskSet`.
     #[tracing::instrument]
-    pub async fn plan(&mut self) -> Result<Plan> {
+    pub async fn plan(mut self) -> Result<Plan> {
         debug!("task set: planning tasks");
         let mut visitor = visitor::PlanningTaskVisitor::new(self.name.clone());
         for task in self.tasks.iter_mut() {
             task.accept(&mut visitor).await?;
         }
         debug!("task set: finished planning tasks");
-        Ok(Plan::new(self.name.clone(), visitor.plan().clone()))
+        Ok(Plan::new(self.name, visitor.plan().clone()))
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum Task {
+    /// A command to be executed.
     Command {
         name: String,
         command: String,
         hosts: Vec<String>,
     },
+    /// A directory to be created.
     CreateDirectory {
         name: String,
         path: String,
         hosts: Vec<String>,
     },
+    /// A file to be created.
     TouchFile {
         name: String,
         path: String,
@@ -92,6 +100,8 @@ impl Task {
     }
 }
 
+/// A planned [`TaskSet`]. A `Plan` is a set of [`PlannedTask`]s that have had
+/// their [`Ensure`]s generated for execution on the remote hosts.
 #[derive(Getters, Debug, Clone, Deserialize, Serialize)]
 pub struct Plan {
     name: String,
@@ -103,6 +113,9 @@ impl Plan {
         Self { name, blueprint }
     }
 
+    /// Generate a new plan for the given host. Does not consume this plan. Any
+    /// [`Task`]s in this plan that do not apply to the specified host will be
+    /// excluded from the resulting plan.
     #[tracing::instrument]
     pub fn plan_for_host(&self, host: &String, hosts: &HostConfig) -> Plan {
         Plan {
@@ -130,6 +143,8 @@ impl Plan {
     }
 }
 
+/// A planned [`Task`]. Contains information like the [`Ensure`]s necessary to
+/// validate this command.
 #[derive(Getters, Debug, Clone, Deserialize, Serialize)]
 pub struct PlannedTask {
     name: String,
@@ -139,14 +154,6 @@ pub struct PlannedTask {
 }
 
 impl PlannedTask {
-    #[tracing::instrument(skip(visitor))]
-    pub async fn accept(
-        &mut self,
-        visitor: &mut dyn visitor::PlannedTaskVisitor<Out = Vec<anyhow::Error>>,
-    ) -> Result<Vec<anyhow::Error>> {
-        visitor.visit_planned_task(self).await
-    }
-
     #[tracing::instrument]
     pub fn from_shell_command<S: Into<String> + std::fmt::Debug>(
         name: S,
@@ -164,12 +171,22 @@ impl PlannedTask {
     }
 }
 
+/// Validations for a [`Task`]. These are generated during the planning phase.
+/// [`Ensure`]s are compiled down to shell commands executed on the remote host
+/// prior to any `Task` commands, to ensure that the `Task` can be executed.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub enum Ensure {
+    /// Ensure that the specified path exists on the host and is a file.
     FileExists { path: String },
+    /// Ensure that the specified path exists on the host and is a directory.
     DirectoryExists { path: String },
+    /// Ensure that the specified file does not exist on the host. Will fail if
+    /// the path exists and is a directory.
     FileDoesntExist { path: String },
+    /// Ensure that the specified directory does not exist on the host. Will
+    /// fail if the path exists and is a file.
     DirectoryDoesntExist { path: String },
+    /// Ensure that the specified executable exists on the host.
     ExeExists { exe: String },
 }
 
