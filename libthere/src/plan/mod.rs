@@ -136,6 +136,7 @@ impl Plan {
         Ok((me, errors))
     }
 
+    #[tracing::instrument]
     pub fn plan_for_host(&self, host: &String, hosts: &HostConfig) -> Plan {
         Plan {
             name: self.name.clone(),
@@ -179,7 +180,8 @@ impl PlannedTask {
         visitor.visit_planned_task(self).await
     }
 
-    pub fn from_shell_command<S: Into<String>>(
+    #[tracing::instrument]
+    pub fn from_shell_command<S: Into<String> + std::fmt::Debug>(
         name: S,
         command: S,
         hosts: Vec<String>,

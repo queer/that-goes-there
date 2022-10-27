@@ -290,14 +290,17 @@ impl thrussh::client::Handler for SshClient {
         futures::future::Ready<Result<(Self, thrussh::client::Session), anyhow::Error>>;
     type FutureBool = futures::future::Ready<Result<(Self, bool), anyhow::Error>>;
 
+    #[tracing::instrument(skip(self))]
     fn finished_bool(self, b: bool) -> Self::FutureBool {
         futures::future::ready(Ok((self, b)))
     }
 
+    #[tracing::instrument(skip(self, session))]
     fn finished(self, session: thrussh::client::Session) -> Self::FutureUnit {
         futures::future::ready(Ok((self, session)))
     }
 
+    #[tracing::instrument(skip(self))]
     fn check_server_key(
         self,
         _server_public_key: &thrussh_keys::key::PublicKey,

@@ -31,7 +31,8 @@ impl<'a> SimpleExecutor<'a> {
         }
     }
 
-    async fn sink_one<S: Into<String>>(&mut self, msg: S) -> Result<usize> {
+    #[tracing::instrument(skip(self))]
+    async fn sink_one<S: Into<String> + std::fmt::Debug>(&mut self, msg: S) -> Result<usize> {
         self.log_sink
             .lock()
             .await
@@ -40,6 +41,7 @@ impl<'a> SimpleExecutor<'a> {
             .context("failed to sink log message.")
     }
 
+    #[tracing::instrument(skip(self))]
     async fn ensure_task(&mut self, task: &'a plan::PlannedTask) -> Result<Vec<&'a plan::Ensure>> {
         let mut failures = vec![];
         for ensure in task.ensures() {
@@ -223,7 +225,7 @@ impl<'a> SimpleLogSink<'a> {
 
 #[async_trait]
 impl<'a> LogSink for SimpleLogSink<'a> {
-    #[tracing::instrument]
+    #[tracing::instrument(skip(self))]
     async fn sink(&mut self, logs: PartialLogStream) -> Result<usize> {
         let out = match logs {
             PartialLogStream::Next(ref logs) => Ok(logs.len()),
@@ -248,7 +250,7 @@ impl SimpleLogSource {
 
 #[async_trait]
 impl LogSource for SimpleLogSource {
-    #[tracing::instrument]
+    #[tracing::instrument(skip(self))]
     async fn source(&mut self) -> Result<PartialLogStream> {
         if self.ended {
             anyhow::bail!("Log source already ended");

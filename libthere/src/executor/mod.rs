@@ -35,7 +35,11 @@ pub trait ExecutionContext: std::fmt::Debug {
 pub trait LogSink: std::fmt::Debug {
     async fn sink(&mut self, logs: PartialLogStream) -> Result<usize>;
 
-    async fn sink_one<S: Into<String> + Send>(&mut self, log: S) -> Result<usize> {
+    #[tracing::instrument(skip(self))]
+    async fn sink_one<S: Into<String> + Send + std::fmt::Debug>(
+        &mut self,
+        log: S,
+    ) -> Result<usize> {
         self.sink(PartialLogStream::Next(vec![log.into()])).await
     }
 }

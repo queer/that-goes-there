@@ -62,6 +62,7 @@ pub trait Command<'a> {
 }
 
 pub trait Interactive<'a> {
+    #[tracing::instrument(skip(self))]
     fn prompt_for_input(&self, message: &'a str) -> Result<String> {
         Input::<String>::new()
             .with_prompt(message)
@@ -70,7 +71,8 @@ pub trait Interactive<'a> {
             .context("Prompting user input failed.")
     }
 
-    fn prompt_for_input_with_default<S: Into<String>>(
+    #[tracing::instrument(skip(self))]
+    fn prompt_for_input_with_default<S: Into<String> + std::fmt::Debug>(
         &self,
         message: &str,
         default: S,
@@ -83,6 +85,7 @@ pub trait Interactive<'a> {
             .context("Prompting user input failed.")
     }
 
+    #[tracing::instrument(skip(self, validator))]
     fn prompt_for_input_with_validator<V>(&self, message: &'a str, validator: V) -> Result<String>
     where
         V: FnMut(&String) -> Result<(), CommandErrors>,
@@ -95,6 +98,7 @@ pub trait Interactive<'a> {
             .context("Prompting user input with validator failed.")
     }
 
+    #[tracing::instrument(skip(self))]
     fn prompt_for_input_with_regex_validation(
         &self,
         message: &'a str,
@@ -113,6 +117,7 @@ pub trait Interactive<'a> {
     }
 
     /// Read argument from the CLI args with a validation function.
+    #[tracing::instrument(skip(self, validator))]
     fn read_argument_with_validator<V>(
         &self,
         arg_matches: &'a ArgMatches,
@@ -131,6 +136,7 @@ pub trait Interactive<'a> {
     }
 
     /// Read argument from the CLI args with regex validation.
+    #[tracing::instrument(skip(self))]
     fn read_argument_with_regex_validation(
         &self,
         arg_matches: &'a ArgMatches,

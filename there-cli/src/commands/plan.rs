@@ -29,13 +29,18 @@ impl PlanCommand {
 }
 
 impl PlanCommand {
-    async fn read_hosts_config<S: Into<String>>(&self, path: S) -> Result<HostConfig> {
+    #[tracing::instrument(skip(self))]
+    async fn read_hosts_config<S: Into<String> + std::fmt::Debug>(
+        &self,
+        path: S,
+    ) -> Result<HostConfig> {
         let hosts = fs::read_to_string(path.into())
             .await
             .context("Failed reading hosts file")?;
         serde_yaml::from_str(hosts.as_str()).context("deserializing hosts config")
     }
 
+    #[tracing::instrument(skip(self, _context))]
     async fn subcommand_validate<'a>(
         &self,
         _context: &'a super::CliContext<'a>,
@@ -63,6 +68,7 @@ impl PlanCommand {
         Ok(())
     }
 
+    #[tracing::instrument(skip(self))]
     fn inspect_host_group(
         &self,
         hosts: &HashMap<String, Host>,
@@ -83,6 +89,7 @@ impl PlanCommand {
         Ok(())
     }
 
+    #[tracing::instrument(skip(self, _context))]
     async fn subcommand_apply<'a>(
         &self,
         _context: &'a super::CliContext<'a>,
@@ -180,6 +187,7 @@ impl PlanCommand {
     }
 
     /// Returns how many tasks passed.
+    #[tracing::instrument(skip(self, plan, matches))]
     async fn do_apply(
         &self,
         plan: plan::Plan,
@@ -286,6 +294,7 @@ impl<'a> super::Command<'a> for PlanCommand {
         Self {}
     }
 
+    #[tracing::instrument(skip(self, context))]
     async fn run(&self, context: &'a super::CliContext) -> Result<()> {
         match context.matches.subcommand() {
             Some(("validate", matches)) => {

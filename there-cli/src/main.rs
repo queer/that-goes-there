@@ -13,6 +13,7 @@ mod executor;
 use libthere::log::*;
 
 #[tokio::main]
+#[tracing::instrument]
 async fn main() -> Result<()> {
     // Command configuration
     let matches = command!()
