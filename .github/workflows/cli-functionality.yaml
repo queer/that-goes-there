@@ -3,9 +3,17 @@ on:
   push:
     branches:
       - "mistress"
+    paths:
+    - "**.rs"
+    - "test/**"
+    - "there-cli/**"
   pull_request:
     branches:
       - "mistress"
+    paths:
+    - "**.rs"
+    - "test/**"
+    - "there-cli/**"
 
 jobs:
   run-tests:

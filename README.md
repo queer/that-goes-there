@@ -21,7 +21,6 @@ dynamically.
 ## todo
 
 - pretty tui with [cursive](https://crates.io/crates/cursive) for log streaming
-- send command logs to their own sink for tui display eventually
 - server+agent executor
   - rkyv?
   - grpc streams? (ew)
