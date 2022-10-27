@@ -6,6 +6,7 @@ use std::{future::Future, marker::PhantomData};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use derive_getters::Getters;
+use tokio::fs;
 use tokio::sync::{mpsc, Mutex};
 
 use super::{ExecutionContext, Executor, LogSink, LogSource, Logs, PartialLogStream};
@@ -39,10 +40,32 @@ impl<'a> SimpleExecutor<'a> {
             .context("failed to sink log message.")
     }
 
+    async fn ensure_task(&mut self, task: &'a plan::PlannedTask) -> Result<Vec<&'a plan::Ensure>> {
+        let mut failures = vec![];
+        for ensure in task.ensures() {
+            self.sink_one(format!("ensuring {:?}", ensure)).await?;
+            let pass = match ensure {
+                plan::Ensure::DirectoryDoesntExist { path } => fs::metadata(path).await.is_err(),
+                plan::Ensure::DirectoryExists { path } => {
+                    fs::metadata(path).await.is_ok() && fs::metadata(path).await?.is_dir()
+                }
+                plan::Ensure::FileDoesntExist { path } => fs::metadata(path).await.is_err(),
+                plan::Ensure::FileExists { path } => {
+                    fs::metadata(path).await.is_ok() && fs::metadata(path).await?.is_file()
+                }
+                plan::Ensure::ExeExists { exe } => which::which(exe).is_ok(),
+            };
+            if !pass {
+                failures.push(ensure);
+            }
+        }
+        Ok(failures)
+    }
+
     #[tracing::instrument(skip(self))]
     async fn execute_task(
         &mut self,
-        task: &plan::PlannedTask,
+        task: &'a plan::PlannedTask,
         ctx: &mut SimpleExecutionContext<'a>,
     ) -> Result<()> {
         use std::ops::Deref;
@@ -55,9 +78,15 @@ impl<'a> SimpleExecutor<'a> {
 
         {
             let mut locked_sink = self.log_sink.lock().await;
-            locked_sink.sink_one(format!("** Executing task: {}", task.name()));
+            locked_sink.sink_one(format!("** executing task: {}", task.name()));
             // drop the lock to release and avoid deadlock
             drop(locked_sink);
+        }
+        let failed_ensures = self.ensure_task(task).await?;
+        if !failed_ensures.is_empty() {
+            self.sink_one(format!("ensures failed: {:?}", failed_ensures))
+                .await?;
+            anyhow::bail!("ensures failed: {:?}", failed_ensures);
         }
         info!("executing task: {}", task.name());
         let cmd = &task.command()[0];
@@ -282,6 +311,10 @@ mod test {
         );
         assert_eq!(
             PartialLogStream::Next(vec!["* steps: 1".into()]),
+            log_source.source().await?
+        );
+        assert_eq!(
+            PartialLogStream::Next(vec!["ensuring ExeExists { exe: \"echo\" }".into()]),
             log_source.source().await?
         );
         assert_eq!(

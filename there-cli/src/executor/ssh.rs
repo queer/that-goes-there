@@ -21,6 +21,7 @@ pub struct SshExecutor<'a> {
 }
 
 impl<'a> SshExecutor<'a> {
+    #[tracing::instrument(skip(ssh_key, ssh_key_passphrase))]
     pub fn new(
         host: &'a Host,
         hostname: String,
@@ -46,7 +47,8 @@ impl<'a> SshExecutor<'a> {
         })
     }
 
-    async fn sink_one<S: Into<String>>(&mut self, msg: S) -> Result<usize> {
+    #[tracing::instrument(skip(self))]
+    async fn sink_one<S: Into<String> + std::fmt::Debug>(&mut self, msg: S) -> Result<usize> {
         self.log_sink
             .lock()
             .await
@@ -55,19 +57,72 @@ impl<'a> SshExecutor<'a> {
             .context("failed to sink log message.")
     }
 
-    #[tracing::instrument(skip(self, channel))]
-    async fn execute_task(
-        &mut self,
-        task: &plan::PlannedTask,
-        ctx: &mut SshExecutionContext<'a>,
-        channel: &mut thrussh::client::Channel,
-    ) -> Result<()> {
-        self.sink_one(format!("** executing task: {}", task.name()))
-            .await?;
-        info!("executing task: {}", task.name());
+    #[tracing::instrument(skip(self))]
+    async fn sink_partial(&mut self, partial: PartialLogStream) -> Result<usize> {
+        self.log_sink
+            .lock()
+            .await
+            .sink(partial)
+            .await
+            .context("failed to sink log message.")
+    }
 
+    #[tracing::instrument(skip(self, session))]
+    async fn ensure_task(
+        &mut self,
+        task: &'a plan::PlannedTask,
+        session: &mut thrussh::client::Handle<SshClient>,
+    ) -> Result<Vec<&'a plan::Ensure>> {
+        let mut failures = vec![];
+        for ensure in task.ensures() {
+            self.sink_one(format!("ensuring {:?}", ensure)).await?;
+            let pass = match ensure {
+                plan::Ensure::DirectoryDoesntExist { path } => {
+                    self.execute_command(format!("test -d \"{}\"", path), session)
+                        .await?
+                        != 0
+                }
+                plan::Ensure::DirectoryExists { path } => {
+                    self.execute_command(format!("test -d \"{}\"", path), session)
+                        .await?
+                        == 0
+                }
+                plan::Ensure::FileDoesntExist { path } => {
+                    self.execute_command(format!("test -f \"{}\"", path), session)
+                        .await?
+                        != 0
+                }
+                plan::Ensure::FileExists { path } => {
+                    self.execute_command(format!("test -f \"{}\"", path), session)
+                        .await?
+                        == 0
+                }
+                plan::Ensure::ExeExists { exe } => {
+                    self.execute_command(format!("which \"{}\"", exe), session)
+                        .await?
+                        == 0
+                }
+            };
+            if !pass {
+                failures.push(ensure);
+            }
+        }
+        Ok(failures)
+    }
+
+    #[tracing::instrument(skip(self, session))]
+    async fn execute_command<S: std::fmt::Debug + Clone + Into<String>>(
+        &mut self,
+        command: S,
+        session: &mut thrussh::client::Handle<SshClient>,
+    ) -> Result<u32> {
+        println!("exec: {}", command.clone().into());
         // TODO: Figure out env etc...
-        channel.exec(true, task.command().join(" ")).await?;
+        let mut channel = session
+            .channel_open_session()
+            .await
+            .context("failed to open channel.")?;
+        channel.exec(true, command.clone().into()).await?;
 
         while let Some(frame) = channel.wait().await {
             let mut sink = self.log_sink.lock().await;
@@ -91,17 +146,15 @@ impl<'a> SshExecutor<'a> {
                     .await?;
                 }
                 thrussh::ChannelMsg::Eof => {} // TODO: ???
-                thrussh::ChannelMsg::Close => break,
+                thrussh::ChannelMsg::Close => {
+                    break;
+                }
                 thrussh::ChannelMsg::XonXoff { client_can_do: _ } => {} // TODO
                 thrussh::ChannelMsg::ExitStatus { exit_status } => {
                     if exit_status == 0 {
-                        break;
+                        return Ok(0);
                     } else {
-                        anyhow::bail!(
-                            "command '{}' exited with status {}",
-                            task.command()[0],
-                            exit_status
-                        );
+                        return Ok(exit_status);
                     }
                 }
                 thrussh::ChannelMsg::ExitSignal {
@@ -115,11 +168,29 @@ impl<'a> SshExecutor<'a> {
                 thrussh::ChannelMsg::Success => {}
             }
         }
+        Ok(511)
+    }
 
-        info!("task '{}' finished", task.name());
-        let mut sink = self.log_sink.lock().await;
-        sink.sink(PartialLogStream::Next(vec![String::new()]))
+    #[tracing::instrument(skip(self, session))]
+    async fn execute_task(
+        &mut self,
+        task: &'a plan::PlannedTask,
+        ctx: &mut SshExecutionContext<'a>,
+        session: &mut thrussh::client::Handle<SshClient>,
+    ) -> Result<()> {
+        self.sink_one(format!("** executing task: {}", task.name()))
             .await?;
+        info!("executing task: {}", task.name());
+        let failed_ensures = self.ensure_task(task, session).await?;
+        if !failed_ensures.is_empty() {
+            self.sink_one(format!("ensures failed: {:?}", failed_ensures))
+                .await?;
+            anyhow::bail!("ensures failed: {:?}", failed_ensures);
+        }
+        self.execute_command(task.command().join(" "), session)
+            .await?;
+        info!("task '{}' finished", task.name());
+        self.sink_one(String::new()).await?;
 
         Ok(())
     }
@@ -127,6 +198,7 @@ impl<'a> SshExecutor<'a> {
 
 #[async_trait]
 impl<'a> Executor<'a, SshExecutionContext<'a>> for SshExecutor<'a> {
+    #[tracing::instrument(skip(self, ctx))]
     async fn execute(&mut self, ctx: Mutex<&'a mut SshExecutionContext>) -> Result<()> {
         debug!("awaiting ctx lock...");
         let ctx = ctx.lock().await;
@@ -149,16 +221,13 @@ impl<'a> Executor<'a, SshExecutionContext<'a>> for SshExecutor<'a> {
             .await;
         if auth_res? {
             debug!("successfully authenticated!");
-            debug!("awaiting channel session open...");
-            let mut channel = session.channel_open_session().await?;
-            debug!("channel open!");
 
             // Actually apply the plan.
             let clone = ctx.clone();
             info!("applying plan: {}", ctx.plan().name());
             for task in ctx.plan.blueprint().iter() {
                 debug!("ssh executor: executing task: {}", task.name());
-                self.execute_task(task, &mut clone.clone(), &mut channel)
+                self.execute_task(task, &mut clone.clone(), &mut session)
                     .await
                     .with_context(|| format!("failed executing ssh task: {}", task.name()))?;
                 self.tasks_completed += 1;
@@ -172,16 +241,12 @@ impl<'a> Executor<'a, SshExecutionContext<'a>> for SshExecutor<'a> {
                 ctx.plan().blueprint().len(),
             ))
             .await?;
-            let mut sink = self.log_sink.lock().await;
-            sink.sink(PartialLogStream::End).await?;
+            self.sink_partial(PartialLogStream::End).await?;
             Ok(())
         } else {
-            let mut sink = self.log_sink.lock().await;
-            sink.sink(PartialLogStream::Next(vec![
-                "ssh authentication failed!".to_string()
-            ]))
-            .await?;
-            sink.sink(PartialLogStream::End).await?;
+            self.sink_one("ssh authentication failed!".to_string())
+                .await?;
+            self.sink_partial(PartialLogStream::End).await?;
             anyhow::bail!("ssh authentication failed!");
         }
     }

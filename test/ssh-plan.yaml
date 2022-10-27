@@ -1,8 +1,18 @@
 ---
 name: "test plan"
 tasks:
-  - type: "Command"
-    name: "test command"
-    command: "echo 'hello world!'"
-    hosts:
-      - "ssh-group"
+- type: "Command"
+  name: "test command"
+  command: "echo 'hello world!'"
+  hosts:
+  - "ssh-group"
+- type: "Command"
+  name: "test command 2"
+  command: "echo 'hello world!! :D'"
+  hosts:
+  - "ssh-group"
+- type: "Command"
+  name: "test command 2"
+  command: "echo 'wow!!!!!'"
+  hosts:
+  - "ssh-group"
