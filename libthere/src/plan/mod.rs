@@ -104,39 +104,6 @@ impl Plan {
     }
 
     #[tracing::instrument]
-    pub async fn validate(&mut self, hosts: &HostConfig) -> Result<(Plan, Vec<anyhow::Error>)> {
-        use std::ops::DerefMut;
-        use std::sync::Arc;
-        use tokio::sync::Mutex;
-
-        let me = self.clone();
-        debug!("plan: validating plan: {}", &self.name());
-
-        let mut errors = vec![];
-
-        let mut visitor: Arc<Mutex<dyn visitor::PlannedTaskVisitor<Out = Vec<anyhow::Error>>>> =
-            Arc::new(Mutex::new(visitor::EnsuringTaskVisitor::new()));
-        for task in self.blueprint.iter_mut() {
-            // TODO: ugh
-            let fake_task = task.clone();
-            let name = fake_task.name();
-
-            debug!("plan: validating task: {}", &name);
-            let visitor = visitor.clone();
-            let mut visitor = visitor.lock().await;
-            let task_errors = task.accept(visitor.deref_mut()).await?;
-            let mut counter = 0;
-            for err in task_errors {
-                counter += 1;
-                errors.push(err);
-            }
-            debug!("plan: validating task: {}: {} errors", &name, counter);
-        }
-
-        Ok((me, errors))
-    }
-
-    #[tracing::instrument]
     pub fn plan_for_host(&self, host: &String, hosts: &HostConfig) -> Plan {
         Plan {
             name: self.name.clone(),
@@ -226,41 +193,6 @@ mod tests {
         assert_eq!(1, plan.blueprint().len());
         assert_eq!("test", plan.blueprint()[0].name());
         assert_eq!("echo hello", plan.blueprint()[0].command().join(" "));
-
-        let (_, errors) = plan.validate(&HostConfig::default()).await?;
-        assert!(errors.is_empty());
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_that_tasks_without_valid_executables_fail_planning() -> Result<()> {
-        let mut taskset = TaskSet::new("test");
-        taskset.add_task(Task::Command {
-            name: "test".into(),
-            command: "doesnotexist".into(),
-            hosts: vec![],
-        });
-        let mut plan = taskset.plan().await?;
-        let (_, errors) = plan.validate(&HostConfig::default()).await?;
-        assert_eq!(1, errors.len());
-        assert_eq!(
-            "doesnotexist not found in $PATH".to_string(),
-            format!("{}", errors[0])
-        );
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_that_touch_file_tasks_pass_validation() -> Result<()> {
-        let mut taskset = TaskSet::new("test");
-        taskset.add_task(Task::TouchFile {
-            name: "test".into(),
-            path: "./tmp/test.txt".into(),
-            hosts: vec![],
-        });
-        let mut plan = taskset.plan().await?;
-        let (_, errors) = plan.validate(&HostConfig::default()).await?;
-        assert!(errors.is_empty());
         Ok(())
     }
 }

@@ -302,8 +302,6 @@ mod test {
         });
         let mut plan = taskset.plan().await?;
         let hosts = HostConfig::default();
-        let (plan, errors) = plan.validate(&hosts).await?;
-        assert!(errors.is_empty());
         let mut ctx = SimpleExecutionContext::new("test", &plan);
         let mut executor = SimpleExecutor::new(&tx);
         executor.execute(Mutex::new(&mut ctx)).await?;

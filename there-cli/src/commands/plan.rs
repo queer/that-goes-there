@@ -53,17 +53,12 @@ impl PlanCommand {
         let plan = fs::read_to_string(file).await?;
         let mut task_set: libthere::plan::TaskSet =
             serde_yaml::from_str(plan.as_str()).context("Failed deserializing plan")?;
-        let mut plan = task_set.plan().await?;
-        if plan.validate(&hosts).await.is_ok() {
-            info!("plan is valid.");
-            println!("* plan is valid.");
-            println!("** hosts:");
-            for (group_name, group_hosts) in hosts.groups() {
-                self.inspect_host_group(hosts.hosts(), group_name, group_hosts)?;
-            }
-        } else {
-            error!("plan is invalid.");
-            println!("* plan is invalid.");
+        task_set.plan().await?;
+        info!("plan is valid.");
+        println!("* plan is valid.");
+        println!("** hosts:");
+        for (group_name, group_hosts) in hosts.groups() {
+            self.inspect_host_group(hosts.hosts(), group_name, group_hosts)?;
         }
         Ok(())
     }
@@ -102,85 +97,77 @@ impl PlanCommand {
         let hosts_file = self.read_argument_with_validator(matches, "hosts", &mut |_| Ok(()))?;
         let hosts = self.read_hosts_config(hosts_file).await?;
 
-        let mut plan = task_set.plan().await?;
-        let (plan, validation_errors) = plan.validate(&hosts).await?;
+        let plan = task_set.plan().await?;
 
-        if validation_errors.is_empty() {
-            if *matches.get_one::<bool>("dry").unwrap() {
-                println!("*** plan: {} ***\n", plan.name());
-                for task in plan.blueprint() {
-                    println!("* {}: {}", task.name(), task.command().join(" "));
-                }
-            } else {
-                info!("applying plan...");
-                let mut futures = FuturesUnordered::new();
-                for (group_name, group_hosts) in hosts.groups() {
-                    println!("*** applying plan to group: {} ***", group_name);
-                    for hostname in group_hosts {
-                        let plan = plan.plan_for_host(hostname, &hosts);
-                        if !plan.blueprint().is_empty() {
-                            let host = &hosts
-                                .hosts()
-                                .get(hostname)
-                                .with_context(|| format!("couldn't find host {}", hostname))?;
-                            let executor = host.executor();
-                            let executor_type: ExecutorType = match executor.as_str() {
-                                "simple" => ExecutorType::Local,
-                                "local" => ExecutorType::Local,
-                                "ssh" => ExecutorType::Ssh,
-                                _ => anyhow::bail!("unknown executor type: {}", executor),
-                            };
-                            futures.push(self.do_apply(
-                                plan,
-                                hostname.clone(),
-                                host,
-                                executor_type,
-                                matches,
-                            ));
-                            println!("*** prepared plan for host: {}", &hostname);
-                        } else {
-                            println!("*** skipping host, no tasks: {}", &hostname);
-                        }
-                    }
-                }
-                while let Some(result) = futures.next().await {
-                    match result {
-                        Ok((host, tasks_completed)) => {
-                            println!(
-                                "*** completed plan: {} for host: {}: {}/{} ***",
-                                &plan.name(),
-                                host,
-                                tasks_completed,
-                                plan.blueprint().len()
-                            );
-                        }
-                        Err(e) => {
-                            warn!("error applying plan: {}", e);
-                            #[allow(clippy::single_match)]
-                            match e.downcast()? {
-                                PlanApplyErrors::PlanApplyFailed(host, tasks_completed, e) => {
-                                    println!(
-                                        "*** failed plan: {} for host: {}: {}/{} ***",
-                                        &plan.name(),
-                                        host,
-                                        tasks_completed,
-                                        plan.blueprint().len()
-                                    );
-                                    println!("*** error: {:#}", e);
-                                }
-                                #[allow(unreachable_patterns)]
-                                _ => unreachable!(),
-                            }
-                        }
-                    }
-                }
-                info!("done!");
+        if *matches.get_one::<bool>("dry").unwrap() {
+            println!("*** plan: {} ***\n", plan.name());
+            for task in plan.blueprint() {
+                println!("* {}: {}", task.name(), task.command().join(" "));
             }
         } else {
-            error!("plan is invalid!");
-            for error in validation_errors {
-                error!("- {}", error);
+            info!("applying plan...");
+            let mut futures = FuturesUnordered::new();
+            for (group_name, group_hosts) in hosts.groups() {
+                println!("*** applying plan to group: {} ***", group_name);
+                for hostname in group_hosts {
+                    let plan = plan.plan_for_host(hostname, &hosts);
+                    if !plan.blueprint().is_empty() {
+                        let host = &hosts
+                            .hosts()
+                            .get(hostname)
+                            .with_context(|| format!("couldn't find host {}", hostname))?;
+                        let executor = host.executor();
+                        let executor_type: ExecutorType = match executor.as_str() {
+                            "simple" => ExecutorType::Local,
+                            "local" => ExecutorType::Local,
+                            "ssh" => ExecutorType::Ssh,
+                            _ => anyhow::bail!("unknown executor type: {}", executor),
+                        };
+                        futures.push(self.do_apply(
+                            plan,
+                            hostname.clone(),
+                            host,
+                            executor_type,
+                            matches,
+                        ));
+                        println!("*** prepared plan for host: {}", &hostname);
+                    } else {
+                        println!("*** skipping host, no tasks: {}", &hostname);
+                    }
+                }
             }
+            while let Some(result) = futures.next().await {
+                match result {
+                    Ok((host, tasks_completed)) => {
+                        println!(
+                            "*** completed plan: {} for host: {}: {}/{} ***",
+                            &plan.name(),
+                            host,
+                            tasks_completed,
+                            plan.blueprint().len()
+                        );
+                    }
+                    Err(e) => {
+                        warn!("error applying plan: {}", e);
+                        #[allow(clippy::single_match)]
+                        match e.downcast()? {
+                            PlanApplyErrors::PlanApplyFailed(host, tasks_completed, e) => {
+                                println!(
+                                    "*** failed plan: {} for host: {}: {}/{} ***",
+                                    &plan.name(),
+                                    host,
+                                    tasks_completed,
+                                    plan.blueprint().len()
+                                );
+                                println!("*** error: {:#}", e);
+                            }
+                            #[allow(unreachable_patterns)]
+                            _ => unreachable!(),
+                        }
+                    }
+                }
+            }
+            info!("done!");
         }
 
         Ok(())
