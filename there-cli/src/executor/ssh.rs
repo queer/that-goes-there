@@ -118,6 +118,10 @@ impl<'a> SshExecutor<'a> {
     ) -> Result<u32> {
         println!("exec: {}", command.clone().into());
         // TODO: Figure out env etc...
+        // NOTE: It SEEMS that you can only push one command down each channel
+        // before the server closes it. This should be verified at some point.
+        // To handle this, we hold open the session for as long as possible,
+        // and open new channels for each command.
         let mut channel = session
             .channel_open_session()
             .await
