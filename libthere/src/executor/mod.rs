@@ -37,7 +37,7 @@ pub trait Executor<'a, T: ExecutionContext + std::fmt::Debug = simple::SimpleExe
 /// plan being executed by the `Executor`.
 #[async_trait]
 pub trait ExecutionContext: std::fmt::Debug {
-    /// The namme of this execution. Usually the name of the [`Plan`].
+    /// The name of this execution. Usually the name of the [`Plan`].
     fn name(&self) -> &str;
 
     /// The plan being executed.

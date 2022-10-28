@@ -11,9 +11,10 @@ install [pre-commit](https://pre-commit.com/).
 ```bash
 pre-commit install
 pre-commit autoupdate
+yarn global add markdownlint-cli # or npm equivalent
 ```
 
-## but we already have ansible/salt/chef/puppet/...!
+## but we already have ansible/salt/chef/puppet/etc
 
 needed a config management tool that could use ssh and agents as transports
 dynamically.
