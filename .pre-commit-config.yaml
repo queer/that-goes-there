@@ -35,9 +35,3 @@ repos:
     language: "system"
     pass_filenames: false
     files: ".rs*$"
-  - id: "markdown-lint"
-    name: "markdown: markdownlint"
-    entry: "markdownlint"
-    language: "system"
-    pass_filenames: true
-    files: ".md*$"
