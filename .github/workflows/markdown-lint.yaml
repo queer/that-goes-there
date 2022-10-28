@@ -22,4 +22,4 @@ jobs:
     - name: Lint changelog file
       uses: "avto-dev/markdown-lint@v1"
       with:
-        args: ["src/**/*.md", "README.md"]
+        args: "src/**/*.md README.md"
