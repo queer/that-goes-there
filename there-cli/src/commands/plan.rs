@@ -101,8 +101,16 @@ impl PlanCommand {
 
         if *matches.get_one::<bool>("dry").unwrap() {
             println!("*** plan: {} ***\n", plan.name());
+            println!("* metadata");
+            println!("** hosts:");
+            for (group_name, group_hosts) in hosts.groups() {
+                self.inspect_host_group(hosts.hosts(), group_name, group_hosts)?;
+            }
             for task in plan.blueprint() {
-                println!("* {}: {}", task.name(), task.command().join(" "));
+                println!("** {}: {}", task.name(), task.command().join(" "));
+                for ensure in task.ensures() {
+                    println!("*** {:?}", ensure);
+                }
             }
         } else {
             info!("applying plan...");

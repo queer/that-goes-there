@@ -16,3 +16,8 @@ tasks:
   command: "echo 'wow!!!!!'"
   hosts:
   - "ssh-group"
+- type: "TouchFile"
+  name: "create some file"
+  path: "/tmp/some-file"
+  hosts:
+  - "ssh-group"

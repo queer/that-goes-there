@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 use derive_getters::Getters;
 
-use super::{Ensure, PlannedTask, Task};
+use super::{Ensure, Plan, PlannedTask, Task, TaskSet};
 use crate::log::*;
 
 /// A visitor for a [`Task`] in a [`TaskSet`]. Task visitors are used to do
@@ -67,9 +67,14 @@ impl TaskVisitor for PlanningTaskVisitor {
                 self.plan.push(PlannedTask {
                     name: name.to_string(),
                     command: vec!["touch".into(), path.to_string()],
-                    ensures: vec![Ensure::ExeExists {
-                        exe: "touch".into(),
-                    }],
+                    ensures: vec![
+                        Ensure::ExeExists {
+                            exe: "touch".into(),
+                        },
+                        Ensure::DirectoryExists {
+                            path: Path::new(path).parent().unwrap().display().to_string(),
+                        },
+                    ],
                     hosts: task.hosts(),
                 });
             }

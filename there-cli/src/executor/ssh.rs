@@ -116,7 +116,6 @@ impl<'a> SshExecutor<'a> {
         command: S,
         session: &mut thrussh::client::Handle<SshClient>,
     ) -> Result<u32> {
-        println!("exec: {}", command.clone().into());
         // TODO: Figure out env etc...
         // NOTE: It SEEMS that you can only push one command down each channel
         // before the server closes it. This should be verified at some point.

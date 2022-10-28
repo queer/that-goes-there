@@ -11,7 +11,7 @@ use tokio::sync::{mpsc, Mutex};
 
 use super::{ExecutionContext, Executor, LogSink, LogSource, Logs, PartialLogStream};
 use crate::log::*;
-use crate::plan;
+use crate::plan::{Ensure, Plan, PlannedTask, Task};
 
 pub type SimpleLogTx = mpsc::Sender<PartialLogStream>;
 pub type SimpleLogRx = mpsc::Receiver<PartialLogStream>;
@@ -44,20 +44,20 @@ impl<'a> SimpleExecutor<'a> {
     }
 
     #[tracing::instrument(skip(self))]
-    async fn ensure_task(&mut self, task: &'a plan::PlannedTask) -> Result<Vec<&'a plan::Ensure>> {
+    async fn ensure_task(&mut self, task: &'a PlannedTask) -> Result<Vec<&'a Ensure>> {
         let mut failures = vec![];
         for ensure in task.ensures() {
             self.sink_one(format!("ensuring {:?}", ensure)).await?;
             let pass = match ensure {
-                plan::Ensure::DirectoryDoesntExist { path } => fs::metadata(path).await.is_err(),
-                plan::Ensure::DirectoryExists { path } => {
+                Ensure::DirectoryDoesntExist { path } => fs::metadata(path).await.is_err(),
+                Ensure::DirectoryExists { path } => {
                     fs::metadata(path).await.is_ok() && fs::metadata(path).await?.is_dir()
                 }
-                plan::Ensure::FileDoesntExist { path } => fs::metadata(path).await.is_err(),
-                plan::Ensure::FileExists { path } => {
+                Ensure::FileDoesntExist { path } => fs::metadata(path).await.is_err(),
+                Ensure::FileExists { path } => {
                     fs::metadata(path).await.is_ok() && fs::metadata(path).await?.is_file()
                 }
-                plan::Ensure::ExeExists { exe } => which::which(exe).is_ok(),
+                Ensure::ExeExists { exe } => which::which(exe).is_ok(),
             };
             if !pass {
                 failures.push(ensure);
@@ -69,7 +69,7 @@ impl<'a> SimpleExecutor<'a> {
     #[tracing::instrument(skip(self))]
     async fn execute_task(
         &mut self,
-        task: &'a plan::PlannedTask,
+        task: &'a PlannedTask,
         ctx: &mut SimpleExecutionContext<'a>,
     ) -> Result<()> {
         use std::ops::Deref;
@@ -191,11 +191,11 @@ impl<'a> Executor<'a, SimpleExecutionContext<'a>> for SimpleExecutor<'a> {
 #[derive(Getters, Debug, Clone)]
 pub struct SimpleExecutionContext<'a> {
     name: String,
-    plan: &'a plan::Plan,
+    plan: &'a Plan,
 }
 
 impl<'a> SimpleExecutionContext<'a> {
-    pub fn new<S: Into<String>>(name: S, plan: &'a plan::Plan) -> Self {
+    pub fn new<S: Into<String>>(name: S, plan: &'a Plan) -> Self {
         Self {
             name: name.into(),
             plan,
@@ -209,13 +209,13 @@ impl<'a> ExecutionContext for SimpleExecutionContext<'a> {
         &self.name
     }
 
-    fn plan(&self) -> &plan::Plan {
+    fn plan(&self) -> &Plan {
         self.plan
     }
 }
 
 /// A basic [`LogSink`] implementation that pushes logs into a
-/// [`tokio::mpsc::Sender`].
+/// [`tokio::sync::mpsc::Sender`].
 #[derive(Getters, Debug, Clone)]
 pub struct SimpleLogSink<'a> {
     tx: &'a SimpleLogTx,
@@ -241,7 +241,7 @@ impl<'a> LogSink for SimpleLogSink<'a> {
 }
 
 /// A basic [`LogSource`] implementation that pulls logs from a
-/// [`tokio::mpsc::Receiver`].
+/// [`tokio::sync::mpsc::Receiver`].
 #[derive(Debug)]
 pub struct SimpleLogSource {
     rx: SimpleLogRx,

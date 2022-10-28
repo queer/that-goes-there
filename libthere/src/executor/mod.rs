@@ -3,7 +3,8 @@ use async_trait::async_trait;
 
 use tokio::sync::Mutex;
 
-use crate::plan;
+use crate::plan::host::Host;
+use crate::plan::Plan;
 
 pub mod simple;
 
@@ -40,7 +41,7 @@ pub trait ExecutionContext: std::fmt::Debug {
     fn name(&self) -> &str;
 
     /// The plan being executed.
-    fn plan(&self) -> &plan::Plan;
+    fn plan(&self) -> &Plan;
 }
 
 /// A sink for logs from an [`Executor`]. The `Executor` will push logs into
