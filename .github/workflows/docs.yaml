@@ -1,4 +1,4 @@
-name: "Run clippy lints"
+name: "Build docs"
 on:
   push:
     branches:
@@ -27,6 +27,6 @@ jobs:
         override: true
     - uses: "Swatinem/rust-cache@v1"
       with:
-        key: "clippy"
-    - name: "Run cargo  doc"
-      run: "cargo doc --workspace --all-features --examples --no-deps --locked --frozen"
+        key: "doc"
+    - name: "Run cargo doc"
+      run: "cargo doc --workspace --all-features --examples --no-deps --locked"
