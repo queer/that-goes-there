@@ -20,7 +20,7 @@ jobs:
     - name: "Check out code"
       uses: actions/checkout@v2
 
-    - name: Lint changelog file
+    - name: "Lint all markdown"
       uses: "avto-dev/markdown-lint@v1"
       with:
         args: "src/**/*.md README.md"
