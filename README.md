@@ -11,7 +11,7 @@ install [pre-commit](https://pre-commit.com/).
 ```bash
 pre-commit install
 pre-commit autoupdate
-yarn global add markdownlint-cli # or npm equivalent
+yarn global add markdownlint-cli # or npm i -g markdownlint-cli
 ```
 
 ## but we already have ansible/salt/chef/puppet/etc
