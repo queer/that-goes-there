@@ -250,6 +250,7 @@ impl<'a> Executor<'a, SshExecutionContext<'a>> for SshExecutor<'a> {
             self.sink_one("ssh authentication failed!".to_string())
                 .await?;
             self.sink_partial(PartialLogStream::End).await?;
+            // TODO: Does this error need to be repeated here *and* in the stream?
             anyhow::bail!("ssh authentication failed!");
         }
     }

@@ -25,3 +25,4 @@ dynamically.
   - rkyv?
   - grpc streams? (ew)
   - websockets???
+  - http requests?????
