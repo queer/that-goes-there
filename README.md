@@ -17,7 +17,7 @@ yarn global add markdownlint-cli # or npm equivalent
 ## but we already have ansible/salt/chef/puppet/etc
 
 needed a config management tool that could use ssh and agents as transports
-dynamically.
+dynamically. plus it's fun to make new tools!
 
 ## todo
 

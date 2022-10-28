@@ -29,7 +29,7 @@ impl TaskSet {
     pub fn new<S: Into<String>>(name: S) -> Self {
         Self {
             name: name.into(),
-            tasks: Vec::new(),
+            tasks: vec![],
         }
     }
 

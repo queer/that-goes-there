@@ -25,10 +25,7 @@ pub struct PlanningTaskVisitor {
 
 impl PlanningTaskVisitor {
     pub fn new(name: String) -> Self {
-        Self {
-            name,
-            plan: Vec::new(),
-        }
+        Self { name, plan: vec![] }
     }
 }
 
