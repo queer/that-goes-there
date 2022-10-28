@@ -13,9 +13,10 @@ on:
 
 jobs:
   lint-markdown:
-  - name: Check out code
-    uses: actions/checkout@v2
+    steps:
+    - name: "Check out code"
+      uses: actions/checkout@v2
 
-  - name: Lint changelog file
-    uses: "avto-dev/markdown-lint@v1"
-    args: ["src/**/*.md", "README.md"]
+    - name: Lint changelog file
+      uses: "avto-dev/markdown-lint@v1"
+      args: ["src/**/*.md", "README.md"]
