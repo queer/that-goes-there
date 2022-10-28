@@ -5,11 +5,13 @@ on:
     - "mistress"
     paths:
     - "**.md"
+    - "README.md"
   pull_request:
     branches:
     - "mistress"
     paths:
     - "**.md"
+    - "README.md"
 
 jobs:
   lint-markdown:
