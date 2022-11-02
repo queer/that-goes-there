@@ -16,5 +16,4 @@ tokio = { version = "1.21.2", features = ["full"] }
 tokio-stream = "0.1.11"
 tokio-util = { version = "0.7.4", features = ["codec"] }
 tracing = { version = "0.1.37", features = ["async-await"] }
-tracing-futures = { version = "0.2.5", features = ["tokio"] }
 which = "4.3.0"

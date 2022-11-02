@@ -11,6 +11,7 @@ install [pre-commit](https://pre-commit.com/).
 ```bash
 pre-commit install
 pre-commit autoupdate
+cargo install cargo-audit
 ```
 
 ## but we already have ansible/salt/chef/puppet/etc
