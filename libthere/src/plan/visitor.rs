@@ -18,18 +18,18 @@ pub trait TaskVisitor: Send + std::fmt::Debug {
 /// An implementation of [`TaskVisitor`] that compiles a [`Task`] into a
 /// `Vec<PlannedTask>`.
 #[derive(Getters, Debug, Clone)]
-pub struct PlanningTaskVisitor {
-    name: String,
+pub struct PlanningTaskVisitor<'a> {
+    name: &'a str,
     plan: Vec<PlannedTask>,
 }
 
-impl PlanningTaskVisitor {
-    pub fn new(name: String) -> Self {
+impl<'a> PlanningTaskVisitor<'a> {
+    pub fn new(name: &'a str) -> Self {
         Self { name, plan: vec![] }
     }
 }
 
-impl TaskVisitor for PlanningTaskVisitor {
+impl<'a> TaskVisitor for PlanningTaskVisitor<'a> {
     type Out = ();
 
     /// Visits the given task and compiles it into a [`PlannedTask`] that is

@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::path::Path;
 
 use super::Interactive;
 use anyhow::{Context, Result};
@@ -30,11 +31,8 @@ impl PlanCommand {
 
 impl PlanCommand {
     #[tracing::instrument(skip(self))]
-    async fn read_hosts_config<S: Into<String> + std::fmt::Debug>(
-        &self,
-        path: S,
-    ) -> Result<HostConfig> {
-        let hosts = fs::read_to_string(path.into())
+    async fn read_hosts_config(&self, path: &Path) -> Result<HostConfig> {
+        let hosts = fs::read_to_string(path)
             .await
             .context("Failed reading hosts file")?;
         serde_yaml::from_str(hosts.as_str()).context("deserializing hosts config")
@@ -47,7 +45,8 @@ impl PlanCommand {
         matches: &ArgMatches,
     ) -> Result<()> {
         let file = self.read_argument_with_validator(matches, "file", &mut |_| Ok(()))?;
-        let hosts_file = self.read_argument_with_validator(matches, "hosts", &mut |_| Ok(()))?;
+        let hosts_file = &self.read_argument_with_validator(matches, "hosts", &mut |_| Ok(()))?;
+        let hosts_file = Path::new(hosts_file);
         let hosts = self.read_hosts_config(hosts_file).await?;
 
         let plan = fs::read_to_string(file).await?;
@@ -95,6 +94,7 @@ impl PlanCommand {
         let task_set: libthere::plan::TaskSet =
             serde_yaml::from_str(plan.as_str()).context("Failed deserializing plan")?;
         let hosts_file = self.read_argument_with_validator(matches, "hosts", &mut |_| Ok(()))?;
+        let hosts_file = Path::new(&hosts_file);
         let hosts = self.read_hosts_config(hosts_file).await?;
 
         let plan = task_set.plan().await?;
@@ -248,7 +248,7 @@ impl PlanCommand {
                 let context = Mutex::new(&mut context);
                 #[allow(clippy::or_fun_call)]
                 let mut executor =
-                    ssh::SshExecutor::new(host, ssh_hostname, &tx, ssh_key, ssh_key_passphrase)?;
+                    ssh::SshExecutor::new(host, &ssh_hostname, &tx, &ssh_key, ssh_key_passphrase)?;
                 match executor.execute(context).await.with_context(|| {
                     format!(
                         "ssh executor failed to apply plan {} to host {}: {}/{} tasks finished",

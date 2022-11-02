@@ -43,12 +43,13 @@ impl TaskSet {
     #[tracing::instrument]
     pub async fn plan(mut self) -> Result<Plan> {
         debug!("task set: planning tasks");
-        let mut visitor = visitor::PlanningTaskVisitor::new(self.name.clone());
+        let name = self.name.clone();
+        let mut visitor = visitor::PlanningTaskVisitor::new(&self.name);
         for task in self.tasks.iter_mut() {
             task.accept(&mut visitor).await?;
         }
         debug!("task set: finished planning tasks");
-        Ok(Plan::new(self.name, visitor.plan().clone()))
+        Ok(Plan::new(name, visitor.plan().clone()))
     }
 }
 

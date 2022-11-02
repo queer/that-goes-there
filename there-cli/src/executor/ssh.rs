@@ -16,7 +16,7 @@ pub struct SshExecutor<'a> {
     log_sink: Arc<Mutex<SimpleLogSink<'a>>>,
     keypair: Arc<thrussh_keys::key::KeyPair>,
     host: &'a Host,
-    hostname: String,
+    hostname: &'a str,
     tasks_completed: u32,
 }
 
@@ -24,18 +24,17 @@ impl<'a> SshExecutor<'a> {
     #[tracing::instrument(skip(ssh_key, ssh_key_passphrase))]
     pub fn new(
         host: &'a Host,
-        hostname: String,
+        hostname: &'a str,
         tx: &'a SimpleLogTx,
-        ssh_key: String,
+        ssh_key: &'a str,
         ssh_key_passphrase: Option<String>,
     ) -> Result<Self> {
         let keypair = match ssh_key_passphrase {
-            Some(passphrase) => {
-                thrussh_keys::decode_secret_key(ssh_key.as_str(), Some(&passphrase))
-                    .context("Decoding SSH key with passphrase failed.")
+            Some(passphrase) => thrussh_keys::decode_secret_key(ssh_key, Some(&passphrase))
+                .context("Decoding SSH key with passphrase failed."),
+            None => {
+                thrussh_keys::decode_secret_key(ssh_key, None).context("Decoding SSH key failed.")
             }
-            None => thrussh_keys::decode_secret_key(ssh_key.as_str(), None)
-                .context("Decoding SSH key failed."),
         }?;
 
         Ok(Self {
@@ -262,23 +261,20 @@ impl<'a> Executor<'a, SshExecutionContext<'a>> for SshExecutor<'a> {
 
 #[derive(Getters, Debug, Clone)]
 pub struct SshExecutionContext<'a> {
-    name: String,
+    name: &'a str,
     plan: &'a plan::Plan,
 }
 
 impl<'a> SshExecutionContext<'a> {
-    pub fn new<S: Into<String>>(name: S, plan: &'a plan::Plan) -> Self {
-        Self {
-            name: name.into(),
-            plan,
-        }
+    pub fn new(name: &'a str, plan: &'a plan::Plan) -> Self {
+        Self { name, plan }
     }
 }
 
 #[async_trait]
 impl<'a> ExecutionContext for SshExecutionContext<'a> {
     fn name(&self) -> &str {
-        &self.name
+        self.name
     }
 
     fn plan(&self) -> &plan::Plan {

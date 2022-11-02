@@ -190,23 +190,20 @@ impl<'a> Executor<'a, SimpleExecutionContext<'a>> for SimpleExecutor<'a> {
 
 #[derive(Getters, Debug, Clone)]
 pub struct SimpleExecutionContext<'a> {
-    name: String,
+    name: &'a str,
     plan: &'a Plan,
 }
 
 impl<'a> SimpleExecutionContext<'a> {
-    pub fn new<S: Into<String>>(name: S, plan: &'a Plan) -> Self {
-        Self {
-            name: name.into(),
-            plan,
-        }
+    pub fn new(name: &'a str, plan: &'a Plan) -> Self {
+        Self { name, plan }
     }
 }
 
 #[async_trait]
 impl<'a> ExecutionContext for SimpleExecutionContext<'a> {
     fn name(&self) -> &str {
-        &self.name
+        self.name
     }
 
     fn plan(&self) -> &Plan {
