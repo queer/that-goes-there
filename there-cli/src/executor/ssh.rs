@@ -65,7 +65,7 @@ impl<'a> SshExecutor<'a> {
     ) -> Result<Vec<&'a plan::Ensure>> {
         let mut failures = vec![];
         for ensure in task.ensures() {
-            self.sink_one(format!("ensuring {:?}", ensure)).await?;
+            self.sink_one(format!("* ensuring {:?}", ensure)).await?;
             let pass = match ensure {
                 plan::Ensure::DirectoryDoesntExist { path } => {
                     self.execute_command(format!("test -d \"{}\"", path), session)
@@ -177,6 +177,8 @@ impl<'a> SshExecutor<'a> {
                 .await?;
             return Err(eyre!("ensures failed: {:?}", failed_ensures));
         }
+        self.sink_one(format!("* executing task: {}", task.name()))
+            .await?;
         self.execute_command(task.command().join(" "), session)
             .await?;
         info!("task '{}' finished", task.name());

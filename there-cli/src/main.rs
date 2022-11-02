@@ -100,13 +100,24 @@ async fn main() -> Result<()> {
         let level = match verbose {
             1 => LevelFilter::WARN,
             2 => LevelFilter::INFO,
-            3 => LevelFilter::DEBUG,
-            _ => LevelFilter::TRACE,
+            3 => {
+                std::env::set_var("RUST_LIB_BACKTRACE", "1");
+                LevelFilter::DEBUG
+            }
+            _ => {
+                std::env::set_var("RUST_LIB_BACKTRACE", "full");
+                LevelFilter::TRACE
+            }
         };
         logging_config.with_max_level(level)
     } else {
         logging_config.with_max_level(LevelFilter::ERROR)
     };
+    if let Some(expected_exe) = std::env::args().next() {
+        if expected_exe == "target/debug/there-cli" {
+            std::env::set_var("RUST_LIB_BACKTRACE", "full");
+        }
+    }
 
     let subscriber = logging_config.finish();
     subscriber.init();
