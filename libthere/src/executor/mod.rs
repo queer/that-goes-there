@@ -1,3 +1,11 @@
+//! Executors for running tasks on local or remote hosts.
+//!
+//! Note that [`LogSink`] and [`LogSource`] **do** return `Result`s, but
+//! callers are expected to handle errors themselves. Failure to handle such
+//! errors will cause unexpected execution failures; functions calling these
+//! should be written defensively so as to handle sink/source errors
+//! appropriately.
+
 use async_trait::async_trait;
 use color_eyre::eyre::Result;
 
