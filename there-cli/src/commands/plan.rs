@@ -156,8 +156,8 @@ impl PlanCommand {
                     Err(e) => {
                         warn!("error applying plan: {}", e);
                         #[allow(clippy::single_match)]
-                        match e.downcast()? {
-                            PlanApplyErrors::PlanApplyFailed(host, tasks_completed, e) => {
+                        match e.downcast() {
+                            Ok(PlanApplyErrors::PlanApplyFailed(host, tasks_completed, e)) => {
                                 println!(
                                     "*** failed plan: {} for host: {}: {}/{} ***",
                                     &plan.name(),
@@ -165,10 +165,17 @@ impl PlanCommand {
                                     tasks_completed,
                                     plan.blueprint().len()
                                 );
-                                println!("*** error: {:#}", e);
+                                println!("*** error: {:#?}", e);
+                            }
+                            Err(msg) => {
+                                println!("{}", msg);
                             }
                             #[allow(unreachable_patterns)]
-                            _ => unreachable!(),
+                            e => {
+                                println!("*** failed plan: ??? for host: ???: ???/??? ***",);
+                                println!("*** error: {:#?}", e);
+                                println!("THIS SHOULD NEVER HAPPEN");
+                            }
                         }
                     }
                 }
@@ -274,10 +281,14 @@ impl PlanCommand {
             }
         };
         info!("finished applying plan");
-        join_handle.await?;
-        match tasks_completed {
-            Ok(tasks_completed) => Ok((hostname, tasks_completed)),
-            Err(e) => Err(eyre!("failed to apply plan: {}", e)),
+        match join_handle.await {
+            Ok(_) => match tasks_completed {
+                Ok(tasks_completed) => Ok((hostname, tasks_completed)),
+                Err(e) => Err(eyre!("failed to apply plan: {}", e)),
+            },
+            e @ Err(_) => e
+                .map(|_| (hostname, 0))
+                .map_err(color_eyre::eyre::Report::new),
         }
     }
 }
