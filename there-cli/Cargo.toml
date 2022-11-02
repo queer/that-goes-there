@@ -25,4 +25,4 @@ derive-getters = "0.2.0"
 tokio-stream = "0.1.11"
 tokio-util = "0.7.4"
 futures = "0.3.25"
-color-eyre = "0.6.2"
+color-eyre = { version = "0.6.2", features = ["issue-url"] }
