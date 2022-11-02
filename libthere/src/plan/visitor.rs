@@ -1,7 +1,7 @@
 use std::path::Path;
 
-use anyhow::{Context, Result};
 use async_trait::async_trait;
+use color_eyre::eyre::Result;
 use derive_getters::Getters;
 
 use super::{Ensure, Plan, PlannedTask, Task, TaskSet};

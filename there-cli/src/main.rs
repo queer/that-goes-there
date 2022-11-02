@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
-use anyhow::Result;
 use clap::{command, Arg, ArgAction};
+use color_eyre::eyre::Result;
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::util::SubscriberInitExt;
 
@@ -119,7 +119,7 @@ async fn main() -> Result<()> {
         );
         match subcommand {
             "plan" => commands::plan::PlanCommand::new().run(&ctx).await?,
-            _ => return Err(anyhow::anyhow!("Unrecognized subcommand: {}", subcommand)),
+            _ => return Err(eyre!("Unrecognized subcommand: {}", subcommand)),
         }
     }
     Ok(())

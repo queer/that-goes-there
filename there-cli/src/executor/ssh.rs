@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use anyhow::{Context, Result};
 use async_trait::async_trait;
+use color_eyre::eyre::Result;
 use derive_getters::Getters;
 use libthere::executor::simple::{SimpleLogSink, SimpleLogTx};
 use libthere::executor::{ExecutionContext, Executor, LogSink, PartialLogStream};
@@ -30,11 +30,8 @@ impl<'a> SshExecutor<'a> {
         ssh_key_passphrase: Option<String>,
     ) -> Result<Self> {
         let keypair = match ssh_key_passphrase {
-            Some(passphrase) => thrussh_keys::decode_secret_key(ssh_key, Some(&passphrase))
-                .context("Decoding SSH key with passphrase failed."),
-            None => {
-                thrussh_keys::decode_secret_key(ssh_key, None).context("Decoding SSH key failed.")
-            }
+            Some(passphrase) => thrussh_keys::decode_secret_key(ssh_key, Some(&passphrase)),
+            None => thrussh_keys::decode_secret_key(ssh_key, None),
         }?;
 
         Ok(Self {
@@ -53,17 +50,11 @@ impl<'a> SshExecutor<'a> {
             .await
             .sink_one(msg.into().clone())
             .await
-            .context("failed to sink log message.")
     }
 
     #[tracing::instrument(skip(self))]
     async fn sink_partial(&mut self, partial: PartialLogStream) -> Result<usize> {
-        self.log_sink
-            .lock()
-            .await
-            .sink(partial)
-            .await
-            .context("failed to sink log message.")
+        self.log_sink.lock().await.sink(partial).await
     }
 
     #[tracing::instrument(skip(self, session))]
@@ -120,10 +111,7 @@ impl<'a> SshExecutor<'a> {
         // before the server closes it. This should be verified at some point.
         // To handle this, we hold open the session for as long as possible,
         // and open new channels for each command.
-        let mut channel = session
-            .channel_open_session()
-            .await
-            .context("failed to open channel.")?;
+        let mut channel = session.channel_open_session().await?;
         channel.exec(true, command.clone().into()).await?;
 
         while let Some(frame) = channel.wait().await {
@@ -187,7 +175,7 @@ impl<'a> SshExecutor<'a> {
         if !failed_ensures.is_empty() {
             self.sink_one(format!("ensures failed: {:?}", failed_ensures))
                 .await?;
-            anyhow::bail!("ensures failed: {:?}", failed_ensures);
+            return Err(eyre!("ensures failed: {:?}", failed_ensures));
         }
         self.execute_command(task.command().join(" "), session)
             .await?;
@@ -230,8 +218,7 @@ impl<'a> Executor<'a, SshExecutionContext<'a>> for SshExecutor<'a> {
             for task in ctx.plan.blueprint().iter() {
                 debug!("ssh executor: executing task: {}", task.name());
                 self.execute_task(task, &mut clone.clone(), &mut session)
-                    .await
-                    .with_context(|| format!("failed executing ssh task: {}", task.name()))?;
+                    .await?;
                 self.tasks_completed += 1;
             }
             info!("plan applied: {}", ctx.plan().name());
@@ -250,7 +237,7 @@ impl<'a> Executor<'a, SshExecutionContext<'a>> for SshExecutor<'a> {
                 .await?;
             self.sink_partial(PartialLogStream::End).await?;
             // TODO: Does this error need to be repeated here *and* in the stream?
-            anyhow::bail!("ssh authentication failed!");
+            return Err(eyre!("ssh authentication failed!"));
         }
     }
 
@@ -285,10 +272,10 @@ impl<'a> ExecutionContext for SshExecutionContext<'a> {
 struct SshClient;
 
 impl thrussh::client::Handler for SshClient {
-    type Error = anyhow::Error;
+    type Error = color_eyre::eyre::Report;
     type FutureUnit =
-        futures::future::Ready<Result<(Self, thrussh::client::Session), anyhow::Error>>;
-    type FutureBool = futures::future::Ready<Result<(Self, bool), anyhow::Error>>;
+        futures::future::Ready<Result<(Self, thrussh::client::Session), color_eyre::eyre::Report>>;
+    type FutureBool = futures::future::Ready<Result<(Self, bool), color_eyre::eyre::Report>>;
 
     #[tracing::instrument(skip(self))]
     fn finished_bool(self, b: bool) -> Self::FutureBool {

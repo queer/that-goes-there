@@ -3,8 +3,8 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::{future::Future, marker::PhantomData};
 
-use anyhow::{Context, Result};
 use async_trait::async_trait;
+use color_eyre::eyre::Result;
 use derive_getters::Getters;
 use tokio::fs;
 use tokio::sync::{mpsc, Mutex};
@@ -40,7 +40,6 @@ impl<'a> SimpleExecutor<'a> {
             .await
             .sink_one(msg.into().clone())
             .await
-            .context("failed to sink log message.")
     }
 
     #[tracing::instrument(skip(self))]
@@ -90,7 +89,7 @@ impl<'a> SimpleExecutor<'a> {
         if !failed_ensures.is_empty() {
             self.sink_one(format!("ensures failed: {:?}", failed_ensures))
                 .await?;
-            anyhow::bail!("ensures failed: {:?}", failed_ensures);
+            return Err(eyre!("ensures failed: {:?}", failed_ensures));
         }
         info!("executing task: {}", task.name());
         let cmd = &task.command()[0];
@@ -103,9 +102,7 @@ impl<'a> SimpleExecutor<'a> {
             .args(args);
         // TODO: env etc
 
-        let mut child = builder
-            .spawn()
-            .with_context(|| format!("spawning command '{}' failed", cmd))?;
+        let mut child = builder.spawn()?;
 
         let mut stdout = FramedRead::new(child.stdout.take().unwrap(), BytesCodec::new());
         let mut stderr = FramedRead::new(child.stderr.take().unwrap(), BytesCodec::new());
@@ -232,7 +229,7 @@ impl<'a> LogSink for SimpleLogSink<'a> {
             PartialLogStream::Next(ref logs) => Ok(logs.len()),
             PartialLogStream::End => Ok(0),
         };
-        self.tx.send(logs).await.context("Failed sending logs")?;
+        self.tx.send(logs).await?;
         out
     }
 }
@@ -256,7 +253,7 @@ impl LogSource for SimpleLogSource {
     #[tracing::instrument(skip(self))]
     async fn source(&mut self) -> Result<PartialLogStream> {
         if self.ended {
-            anyhow::bail!("Log source already ended");
+            return Err(eyre!("log source already ended"));
         }
         let mut out = vec![];
         match &self.rx.try_recv() {
@@ -272,7 +269,7 @@ impl LogSource for SimpleLogSource {
             },
             Err(mpsc::error::TryRecvError::Empty) => {}
             Err(mpsc::error::TryRecvError::Disconnected) => {
-                return Err(anyhow::anyhow!("sink lost"));
+                return Err(eyre!("sink lost"));
             }
         }
         if self.ended {

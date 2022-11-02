@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use anyhow::Result;
+use color_eyre::eyre::Result;
 use derive_getters::Getters;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
@@ -193,7 +193,7 @@ pub enum Ensure {
 
 #[cfg(test)]
 mod tests {
-    use anyhow::Result;
+    use color_eyre::eyre::Result;
 
     use crate::plan::host::HostConfig;
 

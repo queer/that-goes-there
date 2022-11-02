@@ -2,9 +2,9 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use super::Interactive;
-use anyhow::{Context, Result};
 use async_trait::async_trait;
 use clap::ArgMatches;
+use color_eyre::eyre::Result;
 use futures::stream::FuturesUnordered;
 use libthere::executor::{simple, Executor, LogSource, PartialLogStream};
 use libthere::plan::host::{Host, HostConfig};
@@ -32,10 +32,8 @@ impl PlanCommand {
 impl PlanCommand {
     #[tracing::instrument(skip(self))]
     async fn read_hosts_config(&self, path: &Path) -> Result<HostConfig> {
-        let hosts = fs::read_to_string(path)
-            .await
-            .context("Failed reading hosts file")?;
-        serde_yaml::from_str(hosts.as_str()).context("deserializing hosts config")
+        let hosts = fs::read_to_string(path).await?;
+        serde_yaml::from_str(hosts.as_str()).map_err(color_eyre::eyre::Report::new)
     }
 
     #[tracing::instrument(skip(self, _context))]
@@ -50,8 +48,7 @@ impl PlanCommand {
         let hosts = self.read_hosts_config(hosts_file).await?;
 
         let plan = fs::read_to_string(file).await?;
-        let task_set: libthere::plan::TaskSet =
-            serde_yaml::from_str(plan.as_str()).context("Failed deserializing plan")?;
+        let task_set: libthere::plan::TaskSet = serde_yaml::from_str(plan.as_str())?;
         task_set.plan().await?;
         info!("plan is valid.");
         println!("* plan is valid.");
@@ -71,7 +68,9 @@ impl PlanCommand {
     ) -> Result<()> {
         println!("*** group: {}", group_name);
         for hostname in group_hosts {
-            let host = hosts.get(hostname).context("Host not found")?;
+            let host = hosts
+                .get(hostname)
+                .ok_or_else(|| eyre!("host not found: {}", hostname))?;
             println!(
                 "**** {}: {}:{} ({})",
                 hostname,
@@ -91,8 +90,7 @@ impl PlanCommand {
     ) -> Result<()> {
         let file = self.read_argument_with_validator(matches, "file", &mut |_| Ok(()))?;
         let plan = fs::read_to_string(file).await?;
-        let task_set: libthere::plan::TaskSet =
-            serde_yaml::from_str(plan.as_str()).context("Failed deserializing plan")?;
+        let task_set: libthere::plan::TaskSet = serde_yaml::from_str(plan.as_str())?;
         let hosts_file = self.read_argument_with_validator(matches, "hosts", &mut |_| Ok(()))?;
         let hosts_file = Path::new(&hosts_file);
         let hosts = self.read_hosts_config(hosts_file).await?;
@@ -123,13 +121,13 @@ impl PlanCommand {
                         let host = &hosts
                             .hosts()
                             .get(hostname)
-                            .with_context(|| format!("couldn't find host {}", hostname))?;
+                            .ok_or_else(|| eyre!("hostname not in host map: {}", hostname))?;
                         let executor = host.executor();
                         let executor_type: ExecutorType = match executor.as_str() {
                             "simple" => ExecutorType::Local,
                             "local" => ExecutorType::Local,
                             "ssh" => ExecutorType::Ssh,
-                            _ => anyhow::bail!("unknown executor type: {}", executor),
+                            _ => return Err(eyre!("unknown executor type: {}", executor)),
                         };
                         futures.push(self.do_apply(
                             plan,
@@ -217,31 +215,34 @@ impl PlanCommand {
                 let mut context = simple::SimpleExecutionContext::new("test", &plan);
                 let context = Mutex::new(&mut context);
                 let mut executor = simple::SimpleExecutor::new(&tx);
-                executor.execute(context).await.with_context(|| {
-                    format!(
-                        "local executor failed to apply plan {} to host {}: {}/{} tasks finished",
+                executor.execute(context).await
+                .map_err(|err| {
+                    eyre!(
+                        "local executor failed to apply plan {} to host {}: {}/{} tasks finished:\n\n{:?}",
                         plan.name(),
                         hostname,
                         executor.tasks_completed(),
-                        plan.blueprint().len()
+                        plan.blueprint().len(),
+                        err
                     )
-                })?;
+                })
+                ?;
                 Ok(*executor.tasks_completed())
             }
             ExecutorType::Ssh => {
                 let ssh_key_file = matches
                     .get_one::<String>("ssh-key")
-                    .context("--ssh-key wasn't passed")?;
-                let ssh_key = fs::read_to_string(ssh_key_file)
-                    .await
-                    .context("failed reading ssh key file")?;
+                    .ok_or(eyre!("--ssh-key not passed!"))?;
+                let ssh_key = fs::read_to_string(ssh_key_file).await?;
 
-                let ssh_key_passphrase = matches.get_one::<String>("ssh-key-passphrase").map(|s| {
-                    std::fs::read_to_string(s).context("failed to read ssh key passphrase")
-                });
+                let ssh_key_passphrase = matches
+                    .get_one::<String>("ssh-key-passphrase")
+                    .map(std::fs::read_to_string);
                 let ssh_key_passphrase = match ssh_key_passphrase {
                     Some(Ok(passphrase)) => Some(passphrase),
-                    Some(Err(e)) => return Err(e),
+                    Some(Err(e)) => {
+                        return Err(eyre!("failed to read ssh-key-passphrase file: {}", e))
+                    }
                     None => None,
                 };
                 let mut context = ssh::SshExecutionContext::new("test", &plan);
@@ -249,13 +250,14 @@ impl PlanCommand {
                 #[allow(clippy::or_fun_call)]
                 let mut executor =
                     ssh::SshExecutor::new(host, &ssh_hostname, &tx, &ssh_key, ssh_key_passphrase)?;
-                match executor.execute(context).await.with_context(|| {
-                    format!(
-                        "ssh executor failed to apply plan {} to host {}: {}/{} tasks finished",
+                match executor.execute(context).await.map_err(|err| {
+                    eyre!(
+                        "ssh executor failed to apply plan {} to host {}: {}/{} tasks finished:\n\n{:?}",
                         plan.name(),
                         hostname,
                         executor.tasks_completed(),
-                        plan.blueprint().len()
+                        plan.blueprint().len(),
+                        err
                     )
                 }) {
                     Ok(_) => Ok(*executor.tasks_completed()),
@@ -275,7 +277,7 @@ impl PlanCommand {
         join_handle.await?;
         match tasks_completed {
             Ok(tasks_completed) => Ok((hostname, tasks_completed)),
-            Err(e) => Err(anyhow::Error::new(e)),
+            Err(e) => Err(eyre!("failed to apply plan: {}", e)),
         }
     }
 }
@@ -312,5 +314,5 @@ impl<'a> super::Interactive<'a> for PlanCommand {}
 #[derive(thiserror::Error, Debug)]
 enum PlanApplyErrors {
     #[error("failed to apply plan to host: {0} ({1} tasks complete): {2}")]
-    PlanApplyFailed(String, u32, anyhow::Error),
+    PlanApplyFailed(String, u32, color_eyre::eyre::Error),
 }

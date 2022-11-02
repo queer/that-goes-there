@@ -1,6 +1,6 @@
-use anyhow::{Context, Result};
 use async_trait::async_trait;
 use clap::ArgMatches;
+use color_eyre::eyre::Result;
 use dialoguer::Input;
 use regex::Regex;
 use thiserror::Error;
@@ -68,7 +68,7 @@ pub trait Interactive<'a> {
             .with_prompt(message)
             .interact()
             .map_err(CommandErrors::PromptInteractionFailed)
-            .context("Prompting user input failed.")
+            .map_err(color_eyre::eyre::Report::new)
     }
 
     #[tracing::instrument(skip(self))]
@@ -82,7 +82,7 @@ pub trait Interactive<'a> {
             .default(default.into())
             .interact()
             .map_err(CommandErrors::PromptInteractionFailed)
-            .context("Prompting user input failed.")
+            .map_err(color_eyre::eyre::Report::new)
     }
 
     #[tracing::instrument(skip(self, validator))]
@@ -95,7 +95,7 @@ pub trait Interactive<'a> {
             .validate_with(validator)
             .interact()
             .map_err(CommandErrors::PromptInteractionFailed)
-            .context("Prompting user input with validator failed.")
+            .map_err(color_eyre::eyre::Report::new)
     }
 
     #[tracing::instrument(skip(self))]
