@@ -2,7 +2,7 @@
 
 (hopefully) fast configuration management.
 
-rust: stable (1.64 min tested version)
+rust: stable (1.65 min tested version / MSRV)
 
 ## setup
 

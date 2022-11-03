@@ -17,7 +17,7 @@ jobs:
   run-cargo-audit:
     strategy:
       matrix:
-        version: ["stable", "1.64"]
+        version: ["stable", "1.65"]
     if: "github.actor != 'dependabot'"
     runs-on: "ubuntu-latest"
     steps:
