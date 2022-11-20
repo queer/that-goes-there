@@ -9,18 +9,18 @@ edition = "2021"
 libthere = { path = "../libthere" }
 
 async-trait = "0.1.58"
-clap = { version = "4.0.18", features = ["cargo"] }
+clap = { version = "4.0.26", features = ["cargo"] }
 color-eyre = { version = "0.6.2", features = ["issue-url"] }
 dialoguer = { version = "0.10.2", features = ["completion", "fuzzy-matcher", "fuzzy-select", "history"] }
 derive-getters = "0.2.0"
 futures = "0.3.25"
-regex = "1.6.0"
-reqwest = "0.11.12"
+regex = "1.7.0"
+reqwest = "0.11.13"
 serde_yaml = "0.9.14"
 thiserror = "1.0.37"
 thrussh = { version = "0.33.5", features = ["openssl"] }
 thrussh-keys = { version = "0.21.0", features = ["openssl"] }
-time = { version = "0.3.16", features = ["macros"] }
+time = { version = "0.3.17", features = ["macros"] }
 tokio = { version = "1.21.2", features = ["full"] }
 tokio-stream = "0.1.11"
 tokio-util = "0.7.4"
