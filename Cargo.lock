@@ -1674,6 +1674,11 @@ name = "there-controller"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
+ "futures",
+ "rand",
+ "thrussh",
+ "thrussh-keys",
+ "tokio",
 ]
 
 [[package]]

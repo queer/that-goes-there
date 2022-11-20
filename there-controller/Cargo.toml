@@ -7,3 +7,8 @@ edition = "2021"
 
 [dependencies]
 color-eyre = { version = "0.6.2", features = ["issue-url"] }
+futures = "0.3.25"
+rand = "0.8.5"
+thrussh = { version = "0.33.5", features = ["openssl"] }
+thrussh-keys = { version = "0.21.0", features = ["openssl"] }
+tokio = { version = "1.21.2", features = ["full"] }
