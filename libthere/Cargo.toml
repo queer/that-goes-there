@@ -9,7 +9,7 @@ edition = "2021"
 async-trait = "0.1.59"
 color-eyre = { version = "0.6.2", features = ["issue-url"] }
 derive-getters = "0.2.0"
-serde = { version = "1.0.150", features = ["derive"] }
+serde = { version = "1.0.151", features = ["derive"] }
 shell-words = "1.1.0"
 tarpc = { version = "0.31.0", features = ["full"] }
 tokio = { version = "1.23.0", features = ["full"] }
