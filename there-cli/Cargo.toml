@@ -17,7 +17,7 @@ futures = "0.3.25"
 regex = "1.7.0"
 reqwest = "0.11.13"
 serde_yaml = "0.9.14"
-thiserror = "1.0.37"
+thiserror = "1.0.38"
 thrussh = { version = "0.33.5", features = ["openssl"] }
 thrussh-keys = { version = "0.21.0", features = ["openssl"] }
 time = { version = "0.3.17", features = ["macros"] }
