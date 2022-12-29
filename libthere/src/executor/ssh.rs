@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
+use crate::executor::simple::{SimpleLogSink, SimpleLogTx};
+use crate::executor::{ExecutionContext, Executor, LogSink, PartialLogStream};
+use crate::log::*;
+use crate::plan;
+use crate::plan::host::Host;
 use async_trait::async_trait;
 use color_eyre::eyre::Result;
 use derive_getters::Getters;
-use libthere::executor::simple::{SimpleLogSink, SimpleLogTx};
-use libthere::executor::{ExecutionContext, Executor, LogSink, PartialLogStream};
-use libthere::log::*;
-use libthere::plan;
-use libthere::plan::host::Host;
 use tokio::sync::Mutex;
 
 #[derive(Getters, Debug)]

@@ -11,6 +11,8 @@ use tokio::io::AsyncWriteExt;
 
 mod ssh;
 
+// TODO: The controller should be pinged for an SSH pubkey, that agents then drop into their authorized_keys
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let client_key = thrussh_keys::key::KeyPair::generate_ed25519().unwrap();

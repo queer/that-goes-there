@@ -8,7 +8,6 @@ use tracing_subscriber::util::SubscriberInitExt;
 use crate::commands::Command;
 
 mod commands;
-mod executor;
 
 use libthere::log::*;
 

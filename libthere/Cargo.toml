@@ -9,9 +9,12 @@ edition = "2021"
 async-trait = "0.1.60"
 color-eyre = { version = "0.6.2", features = ["issue-url"] }
 derive-getters = "0.2.0"
+futures = "0.3.25"
 serde = { version = "1.0.152", features = ["derive"] }
 shell-words = "1.1.0"
 tarpc = { version = "0.31.0", features = ["full"] }
+thrussh = "0.33.5"
+thrussh-keys = "0.21.0"
 tokio = { version = "1.23.0", features = ["full"] }
 tokio-stream = "0.1.11"
 tokio-util = { version = "0.7.4", features = ["codec"] }

@@ -15,6 +15,7 @@ use crate::plan::host::Host;
 use crate::plan::Plan;
 
 pub mod simple;
+pub mod ssh;
 
 pub type Logs = Vec<String>;
 

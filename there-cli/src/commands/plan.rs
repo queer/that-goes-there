@@ -6,14 +6,12 @@ use async_trait::async_trait;
 use clap::ArgMatches;
 use color_eyre::eyre::Result;
 use futures::stream::FuturesUnordered;
-use libthere::executor::{simple, Executor, LogSource, PartialLogStream};
+use libthere::executor::{simple, ssh, Executor, LogSource, PartialLogStream};
 use libthere::plan::host::{Host, HostConfig};
 use libthere::{log::*, plan};
 use tokio::fs;
 use tokio::sync::{mpsc, Mutex};
 use tokio_stream::StreamExt;
-
-use crate::executor::ssh;
 
 #[derive(Clone, Debug)]
 pub enum ExecutorType {
