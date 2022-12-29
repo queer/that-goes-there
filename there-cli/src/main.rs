@@ -14,25 +14,7 @@ use libthere::log::*;
 #[tokio::main]
 #[tracing::instrument]
 async fn main() -> Result<()> {
-    color_eyre::config::HookBuilder::default()
-        .issue_url(concat!(env!("CARGO_PKG_REPOSITORY"), "/issues/new"))
-        .add_default_filters()
-        .add_frame_filter(Box::new(|frames| {
-            let filters = &["tokio::", "tracing::", "color_eyre::", "<core::"];
-
-            frames.retain(|frame| {
-                !filters.iter().any(|f| {
-                    let name = if let Some(name) = frame.name.as_ref() {
-                        name.as_str()
-                    } else {
-                        return true;
-                    };
-
-                    name.starts_with(f)
-                })
-            });
-        }))
-        .install()?;
+    install_logger()?;
 
     // Command configuration
     let matches = command!()

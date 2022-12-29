@@ -1,21 +1,25 @@
 #![forbid(unsafe_code)]
 
 use std::collections::HashMap;
+use std::env;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use color_eyre::eyre::Result;
+use libthere::log::*;
 use tokio::fs::{self, File};
 use tokio::io::AsyncWriteExt;
 
 mod ssh;
 
-// TODO: The controller should be pinged for an SSH pubkey, that agents then drop into their authorized_keys
-
 #[tokio::main]
 async fn main() -> Result<()> {
-    let client_key = thrussh_keys::key::KeyPair::generate_ed25519().unwrap();
+    install_logger()?;
+
+    let passphrase = env::var("THERE_SSH_PASSPHRASE")?;
+
+    let client_key = get_or_create_executor_keypair(passphrase).await?;
     let client_pubkey = Arc::new(client_key.clone_public_key());
     let config = thrussh::server::Config {
         keys: vec![client_key],
@@ -36,6 +40,22 @@ async fn main() -> Result<()> {
     thrussh::server::run(config, "0.0.0.0:2222", sh)
         .await
         .map_err(|e| e.into())
+}
+
+async fn get_or_create_executor_keypair(passphrase: String) -> Result<thrussh_keys::key::KeyPair> {
+    let path = Path::new("./executor-key");
+    if path.exists() {
+        let key = fs::read_to_string(path).await?;
+        thrussh_keys::decode_secret_key(&key, Some(&passphrase)).map_err(|e| e.into())
+    } else {
+        let mut file = File::create(path).await?;
+        // Safety: thrussh_keys always returns Some(...) right now.
+        let key = thrussh_keys::key::KeyPair::generate_ed25519().unwrap();
+        let mut pem = Vec::new();
+        thrussh_keys::encode_pkcs8_pem_encrypted(&key, passphrase.as_bytes(), 1_000_000, &mut pem)?;
+        file.write_all(&pem).await?;
+        Ok(key)
+    }
 }
 
 async fn get_or_create_token() -> Result<String> {
