@@ -8,6 +8,7 @@ use std::time::Duration;
 
 use color_eyre::eyre::Result;
 use libthere::log::*;
+use network_interface::{NetworkInterface, NetworkInterfaceConfig};
 use tokio::fs::{self, File};
 use tokio::io::AsyncWriteExt;
 
@@ -33,10 +34,15 @@ async fn main() -> Result<()> {
         clients: Arc::new(Mutex::new(HashMap::new())),
         id: 0,
     };
-    println!(
-        "* token for agent connections: {}",
-        get_or_create_token().await?
-    );
+
+    let token = get_or_create_token().await?;
+    println!("* token for agent connections: {token}");
+    println!("* agents can bootstrap via:");
+    for iface in NetworkInterface::show()? {
+        if let Some(addr) = iface.addr {
+            println!("  - {}/api/bootstrap?token={token}", addr.ip());
+        }
+    }
     thrussh::server::run(config, "0.0.0.0:2222", sh)
         .await
         .map_err(|e| e.into())

@@ -1061,6 +1061,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "network-interface"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d0bc4480c4518eb8b2599ae2dd7a97b231178ad8fb9a3e6a854fd48a5f54e95c"
+dependencies = [
+ "cc",
+ "libc",
+ "thiserror",
+ "winapi",
+]
+
+[[package]]
 name = "nu-ansi-term"
 version = "0.46.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1824,6 +1836,7 @@ dependencies = [
  "color-eyre",
  "futures",
  "libthere",
+ "network-interface",
  "rand",
  "thrussh",
  "thrussh-keys",
