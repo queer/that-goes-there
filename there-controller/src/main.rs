@@ -1,10 +1,7 @@
 #![forbid(unsafe_code)]
 
-use std::collections::HashMap;
 use std::env;
 use std::path::Path;
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
 
 use color_eyre::eyre::Result;
 use libthere::log::*;
@@ -12,28 +9,13 @@ use network_interface::{NetworkInterface, NetworkInterfaceConfig};
 use tokio::fs::{self, File};
 use tokio::io::AsyncWriteExt;
 
-mod ssh;
-
 #[tokio::main]
 async fn main() -> Result<()> {
     install_logger()?;
 
     let passphrase = env::var("THERE_SSH_PASSPHRASE")?;
 
-    let client_key = get_or_create_executor_keypair(passphrase).await?;
-    let client_pubkey = Arc::new(client_key.clone_public_key());
-    let config = thrussh::server::Config {
-        keys: vec![client_key],
-        connection_timeout: Some(Duration::from_secs(3)),
-        auth_rejection_time: Duration::from_secs(3),
-        ..Default::default()
-    };
-    let config = Arc::new(config);
-    let sh = ssh::Server {
-        client_pubkey,
-        clients: Arc::new(Mutex::new(HashMap::new())),
-        id: 0,
-    };
+    let _client_key = get_or_create_executor_keypair(passphrase).await?;
 
     let token = get_or_create_token().await?;
     println!("* token for agent connections: {token}");
@@ -43,9 +25,8 @@ async fn main() -> Result<()> {
             println!("  - {}/api/bootstrap?token={token}", addr.ip());
         }
     }
-    thrussh::server::run(config, "0.0.0.0:2222", sh)
-        .await
-        .map_err(|e| e.into())
+
+    Ok(())
 }
 
 async fn get_or_create_executor_keypair(passphrase: String) -> Result<thrussh_keys::key::KeyPair> {
