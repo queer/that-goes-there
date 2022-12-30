@@ -2,7 +2,7 @@
 pub use color_eyre::eyre::eyre;
 pub use tracing::{debug, error, info, span, trace, warn};
 
-pub fn install_logger() -> color_eyre::eyre::Result<()> {
+pub fn install_color_eyre() -> color_eyre::eyre::Result<()> {
     color_eyre::config::HookBuilder::default()
         .issue_url(concat!(env!("CARGO_PKG_REPOSITORY"), "/issues/new"))
         .add_default_filters()

@@ -14,7 +14,7 @@ use libthere::log::*;
 #[tokio::main]
 #[tracing::instrument]
 async fn main() -> Result<()> {
-    install_logger()?;
+    install_color_eyre()?;
 
     // Command configuration
     let matches = command!()

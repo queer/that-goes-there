@@ -7,8 +7,20 @@ use std::time::Duration;
 use color_eyre::eyre;
 use color_eyre::eyre::Result;
 use libthere::log::*;
+use tracing_subscriber::util::SubscriberInitExt;
 
 fn main() -> Result<()> {
+    install_color_eyre()?;
+
+    tracing_subscriber::fmt::SubscriberBuilder::default()
+        .with_timer(tracing_subscriber::fmt::time::UtcTime::new(
+            time::macros::format_description!("[year]-[month]-[day] [hour]:[minute]:[second]"),
+        ))
+        .with_span_events(tracing_subscriber::fmt::format::FmtSpan::NONE)
+        .json()
+        .finish()
+        .init();
+
     let controller_dsn = std::env::var("THERE_CONTROLLER_BOOTSTRAP_DSN")?;
     info!("connecting to: {controller_dsn}");
 

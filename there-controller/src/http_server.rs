@@ -101,7 +101,10 @@ async fn bootstrap(bootstrap: Query<Bootstrap>) -> impl IntoResponse {
             .map(|keys| keys.public_key_base64())
             .unwrap();
 
-        (StatusCode::OK, pubkey)
+        (
+            StatusCode::OK,
+            format!("ssh-ed25519 {} there-controller", pubkey),
+        )
     } else {
         (StatusCode::UNAUTHORIZED, "invalid token".into())
     }
