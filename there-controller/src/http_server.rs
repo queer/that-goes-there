@@ -24,7 +24,7 @@ pub struct ServerState {
     pub jobs: Cache<String, JobState>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct JobState {
     pub logs: HashMap<String, Vec<LogEntry>>,
     pub plan: Plan,
@@ -41,6 +41,7 @@ pub async fn run_server(port: u16) -> Result<()> {
         .route("/", get(root))
         .route("/api/bootstrap", get(bootstrap))
         .route("/api/plan/run", post(run_plan))
+        .route("/api/plan/:job_id/logs", get(get_logs))
         .with_state(state);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
@@ -85,6 +86,19 @@ async fn run_plan(
     });
 
     (StatusCode::OK, job_id)
+}
+
+#[tracing::instrument]
+async fn get_logs(
+    State(state): State<Arc<Mutex<ServerState>>>,
+    Query(job_id): Query<String>,
+) -> impl IntoResponse {
+    let state = state.lock().await;
+    let job_state = state.jobs.get(&job_id).unwrap();
+    (
+        StatusCode::OK,
+        serde_json::to_string(&job_state.logs).unwrap(),
+    )
 }
 
 #[derive(Serialize, Deserialize, Debug)]

@@ -7,11 +7,12 @@ use libthere::executor::{ssh, Executor, LogSource, PartialLogStream};
 use libthere::log::*;
 use libthere::plan::host::{Host, HostConfig};
 use libthere::plan::Plan;
+use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, Mutex};
 
 use crate::http_server::ServerState;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LogEntry {
     pub hostname: String,
     pub log: String,
