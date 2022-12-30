@@ -21,12 +21,7 @@ dynamically. also wanted to experiment with some ui/ux stuff. also it's fun!
 
 ## todo
 
-- pretty tui with [cursive](https://crates.io/crates/cursive) for log streaming
-- server+agent executor
-  - rkyv?
-  - grpc streams? (ew)
-  - websockets???
-  - http requests?????
+- pretty tui with [makeup](https://crates.io/crates/makeup) for log streaming
 
 ## show me something pretty
 
