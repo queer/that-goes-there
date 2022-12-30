@@ -14,6 +14,7 @@ fn main() -> Result<()> {
 
     loop {
         let controller_key = reqwest::blocking::get(controller_dsn.clone())?.text()?;
+
         // Read ~/.ssh/authorized_keys, check if controller_key is in it, and add it if it's not.
         let ssh_key_path = directories::UserDirs::new()
             .ok_or_else(|| eyre::eyre!("could not get user directories"))?
@@ -24,6 +25,7 @@ fn main() -> Result<()> {
         let maybe_existing_key = maybe_existing_key
             .lines()
             .find(|line| line == &controller_key);
+
         if maybe_existing_key.is_none() {
             // Append ssh key to the end of file.
             let mut file = OpenOptions::new()
@@ -34,6 +36,8 @@ fn main() -> Result<()> {
 
             if let Err(e) = writeln!(file, "{controller_key}") {
                 panic!("{}", e);
+            } else {
+                info!("added controller key to {}", ssh_key_path.display());
             }
         }
 
