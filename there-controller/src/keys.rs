@@ -4,10 +4,12 @@ use color_eyre::eyre::Result;
 use tokio::fs::{self, File};
 use tokio::io::AsyncWriteExt;
 
+#[tracing::instrument]
 pub fn passphrase() -> Result<String> {
     std::env::var("THERE_SSH_PASSPHRASE").map_err(|e| e.into())
 }
 
+#[tracing::instrument]
 pub async fn get_or_create_executor_keypair() -> Result<thrussh_keys::key::KeyPair> {
     let path = Path::new("./executor-key");
     if path.exists() {
@@ -29,6 +31,7 @@ pub async fn get_or_create_executor_keypair() -> Result<thrussh_keys::key::KeyPa
     }
 }
 
+#[tracing::instrument]
 pub async fn get_or_create_token() -> Result<String> {
     let path = Path::new("./agent-token");
     if path.exists() {
@@ -41,6 +44,7 @@ pub async fn get_or_create_token() -> Result<String> {
     }
 }
 
+#[tracing::instrument]
 fn generate_token() -> Result<String> {
     use rand::Rng;
     let mut rng = rand::thread_rng();

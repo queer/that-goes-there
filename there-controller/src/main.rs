@@ -4,12 +4,14 @@ use color_eyre::eyre::Result;
 use libthere::log::*;
 use network_interface::{NetworkInterface, NetworkInterfaceConfig};
 
+mod executor;
 mod http_server;
 mod keys;
 
 const PORT: u16 = 2345;
 
 #[tokio::main]
+#[tracing::instrument]
 async fn main() -> Result<()> {
     install_logger()?;
 

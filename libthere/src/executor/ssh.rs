@@ -43,6 +43,21 @@ impl<'a> SshExecutor<'a> {
         })
     }
 
+    pub fn new_with_existing_key(
+        host: &'a Host,
+        hostname: &'a str,
+        tx: &'a SimpleLogTx,
+        keypair: thrussh_keys::key::KeyPair,
+    ) -> Result<Self> {
+        Ok(Self {
+            log_sink: Arc::new(Mutex::new(SimpleLogSink::new(tx))),
+            keypair: Arc::new(keypair),
+            host,
+            hostname,
+            tasks_completed: 0,
+        })
+    }
+
     #[tracing::instrument(skip(self))]
     async fn sink_one<S: Into<String> + std::fmt::Debug>(&mut self, msg: S) -> Result<usize> {
         self.log_sink

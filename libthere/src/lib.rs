@@ -13,5 +13,7 @@
 //!     possible, such as ensuring files/directories do/not exist.
 
 pub mod executor;
+#[doc(hidden)]
+pub mod ipc;
 pub mod log;
 pub mod plan;
