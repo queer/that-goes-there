@@ -1,6 +1,6 @@
 [package]
 name = "there"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 repository = "https://github.com/queer/that-goes-there"
 description = "A library for planning and executing commands on local and remote hosts."
