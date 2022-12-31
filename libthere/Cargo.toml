@@ -2,6 +2,12 @@
 name = "there"
 version = "0.1.0"
 edition = "2021"
+repository = "https://github.com/queer/that-goes-there"
+description = "A library for planning and executing commands on local and remote hosts."
+license = "MIT"
+readme = "../README.md"
+keywords = ["ssh", "remote", "command", "execution", "tasks"]
+categories = ["asynchronous", "concurrency", "network-programming"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
