@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::path::Path;
+use std::time::Duration;
 
 use super::Interactive;
 use async_trait::async_trait;
@@ -7,6 +8,7 @@ use clap::ArgMatches;
 use color_eyre::eyre::Result;
 use futures::stream::FuturesUnordered;
 use libthere::executor::{simple, ssh, Executor, LogSource, PartialLogStream};
+use libthere::ipc::http::{JobState, JobStatus};
 use libthere::plan::host::{Host, HostConfig};
 use libthere::{log::*, plan};
 use tokio::fs;
@@ -94,6 +96,7 @@ impl PlanCommand {
         let hosts = self.read_hosts_config(hosts_file).await?;
 
         let plan = task_set.plan().await?;
+        let controller = matches.get_one::<String>("controller");
 
         if *matches.get_one::<bool>("dry").unwrap() {
             println!("*** plan: {} ***\n", plan.name());
@@ -111,32 +114,82 @@ impl PlanCommand {
         } else {
             info!("applying plan...");
             let mut futures = FuturesUnordered::new();
-            for (group_name, group_hosts) in hosts.groups() {
-                println!("*** applying plan to group: {} ***", group_name);
-                for hostname in group_hosts {
-                    let plan = plan.plan_for_host(hostname, &hosts);
-                    if !plan.blueprint().is_empty() {
-                        let host = &hosts
-                            .hosts()
-                            .get(hostname)
-                            .ok_or_else(|| eyre!("hostname not in host map: {}", hostname))?;
-                        let executor = host.executor();
-                        let executor_type: ExecutorType = match executor.as_str() {
-                            "simple" => ExecutorType::Local,
-                            "local" => ExecutorType::Local,
-                            "ssh" => ExecutorType::Ssh,
-                            _ => return Err(eyre!("unknown executor type: {}", executor)),
-                        };
-                        futures.push(self.do_apply(
-                            plan,
-                            hostname.clone(),
-                            host,
-                            executor_type,
-                            matches,
-                        ));
-                        println!("*** prepared plan for host: {}", &hostname);
-                    } else {
-                        println!("*** skipping host, no tasks: {}", &hostname);
+            if let Some(controller) = controller {
+                info!("applying plan via controller {controller}!");
+                // TODO: reqwest::post(controller).json({plan, hosts}).await?; stream_logs();
+                let client = reqwest::Client::new();
+                let res = client
+                    .post(format!("{controller}/api/plan/run"))
+                    .json(&serde_json::json!({ "plan": plan, "hosts": hosts }))
+                    .send()
+                    .await?;
+                let job_id = res.text().await?;
+                debug!("job_id: {job_id}");
+                println!("* plan assigned controller job id: {job_id}");
+
+                let mut log_offsets = HashMap::new();
+                loop {
+                    let job_state = client
+                        .get(format!("{controller}/api/plan/{job_id}/status"))
+                        .send()
+                        .await?;
+                    let job_state = job_state.json::<JobState>().await?;
+
+                    for (hostname, logs) in job_state.logs {
+                        if logs.len() > *log_offsets.get(&hostname).unwrap_or(&0usize) {
+                            for log in logs
+                                .iter()
+                                .skip(*log_offsets.get(&hostname).unwrap_or(&0usize))
+                            {
+                                println!("{}: {}", log.hostname, log.log);
+                            }
+                            log_offsets.insert(hostname, logs.len());
+                        }
+                    }
+
+                    if job_state.status == JobStatus::Completed {
+                        println!("* plan completed!");
+                        info!("finished execution for plan {job_id}");
+                        break;
+                    }
+
+                    if job_state.status == JobStatus::Failed {
+                        println!("* plan execution failed!");
+                        info!("failed execution for plan {job_id}");
+                        break;
+                    }
+
+                    tokio::time::sleep(Duration::from_millis(50)).await;
+                }
+            } else {
+                info!("applying plan via executor!");
+                for (group_name, group_hosts) in hosts.groups() {
+                    println!("*** applying plan to group: {} ***", group_name);
+                    for hostname in group_hosts {
+                        let plan = plan.plan_for_host(hostname, &hosts);
+                        if !plan.blueprint().is_empty() {
+                            let host = &hosts
+                                .hosts()
+                                .get(hostname)
+                                .ok_or_else(|| eyre!("hostname not in host map: {}", hostname))?;
+                            let executor = host.executor();
+                            let executor_type: ExecutorType = match executor.as_str() {
+                                "simple" => ExecutorType::Local,
+                                "local" => ExecutorType::Local,
+                                "ssh" => ExecutorType::Ssh,
+                                _ => return Err(eyre!("unknown executor type: {}", executor)),
+                            };
+                            futures.push(self.do_apply(
+                                plan,
+                                hostname.clone(),
+                                host,
+                                executor_type,
+                                matches,
+                            ));
+                            println!("*** prepared plan for host: {}", &hostname);
+                        } else {
+                            println!("*** skipping host, no tasks: {}", &hostname);
+                        }
                     }
                 }
             }

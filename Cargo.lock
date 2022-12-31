@@ -1868,6 +1868,7 @@ dependencies = [
  "libthere",
  "regex",
  "reqwest",
+ "serde_json",
  "serde_yaml",
  "thiserror",
  "thrussh",

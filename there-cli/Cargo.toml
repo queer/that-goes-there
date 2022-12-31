@@ -15,7 +15,7 @@ dialoguer = { version = "0.10.2", features = ["completion", "fuzzy-matcher", "fu
 derive-getters = "0.2.0"
 futures = "0.3.25"
 regex = "1.7.0"
-reqwest = "0.11.13"
+reqwest = { version = "0.11.13", features = ["json"] }
 serde_yaml = "0.9.16"
 thiserror = "1.0.38"
 thrussh = { version = "0.33.5", features = ["openssl"] }
@@ -26,3 +26,4 @@ tokio-stream = "0.1.11"
 tokio-util = "0.7.4"
 tracing-subscriber = { version = "0.3.16", features = ["json", "serde", "serde_json", "time", "tracing", "env-filter", "local-time"] }
 tracing = { version = "0.1.37", features = ["async-await"] }
+serde_json = "1.0.91"

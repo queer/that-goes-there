@@ -4,24 +4,18 @@ use color_eyre::eyre::Result;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use libthere::executor::{ssh, Executor, LogSource, PartialLogStream};
+use libthere::ipc::http::LogEntry;
 use libthere::log::*;
 use libthere::plan::host::{Host, HostConfig};
 use libthere::plan::Plan;
-use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, Mutex};
 
 use crate::http_server::ServerState;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct LogEntry {
-    pub hostname: String,
-    pub log: String,
-}
-
 #[tracing::instrument]
 pub async fn apply_plan<'a>(
-    job_id: String,
-    server_state: Arc<Mutex<ServerState>>,
+    job_id: &String,
+    server_state: &Arc<Mutex<ServerState>>,
     plan: Plan,
     hosts: HostConfig,
 ) -> Result<()> {
@@ -51,42 +45,44 @@ pub async fn apply_plan<'a>(
     }
     while let Some(result) = futures.next().await {
         match result {
-            Ok((_host, _tasks_completed)) => {
-                // println!(
-                //     "*** completed plan: {} for host: {}: {}/{} ***",
-                //     &plan.name(),
-                //     host,
-                //     tasks_completed,
-                //     plan.blueprint().len()
-                // );
+            Ok((host, tasks_completed)) => {
+                println!(
+                    "*** completed plan: {} for host: {}: {}/{} ***",
+                    &plan.name(),
+                    host,
+                    tasks_completed,
+                    plan.blueprint().len()
+                );
             }
             Err(e) => {
                 warn!("error applying plan: {}", e);
                 #[allow(clippy::single_match)]
                 match e.downcast() {
-                    Ok(PlanApplyErrors::PlanApplyFailed(_host, _tasks_completed, _e)) => {
-                        // println!(
-                        //     "*** failed plan: {} for host: {}: {}/{} ***",
-                        //     &plan.name(),
-                        //     host,
-                        //     tasks_completed,
-                        //     plan.blueprint().len()
-                        // );
-                        // println!("*** error: {:#?}", e);
+                    Ok(PlanApplyErrors::PlanApplyFailed(host, tasks_completed, e)) => {
+                        println!(
+                            "*** failed plan: {} for host: {}: {}/{} ***",
+                            &plan.name(),
+                            host,
+                            tasks_completed,
+                            plan.blueprint().len()
+                        );
+                        println!("*** error: {:#?}", e);
                     }
-                    Err(_msg) => {
-                        // println!("{}", msg);
+                    Err(msg) => {
+                        println!("{}", msg);
                     }
                     #[allow(unreachable_patterns)]
-                    _e => {
-                        // println!("*** failed plan: ??? for host: ???: ???/??? ***",);
-                        // println!("*** error: {:#?}", e);
-                        // println!("THIS SHOULD NEVER HAPPEN");
+                    e => {
+                        println!("*** failed plan: ??? for host: ???: ???/??? ***",);
+                        println!("*** error: {:#?}", e);
+                        println!("THIS SHOULD NEVER HAPPEN");
                     }
                 }
             }
         }
     }
+
+    info!("finished applying plan! :D");
 
     Ok(())
 }
@@ -111,7 +107,7 @@ async fn do_apply(
                     // Try to hold the server state lock for as little time as
                     // possible.
                     let state = state.lock().await;
-                    if let Some(mut job_state) = state.jobs.get(&job_id) {
+                    if let Some(mut job_state) = state.jobs.get(&job_id.clone()) {
                         let mut logs: Vec<LogEntry> = logs
                             .iter()
                             .map(|log| LogEntry {
@@ -119,7 +115,16 @@ async fn do_apply(
                                 log: log.clone(),
                             })
                             .collect();
-                        job_state.logs.get_mut(&job_id).unwrap().append(&mut logs);
+                        job_state
+                            .logs
+                            .entry(log_hostname.clone())
+                            .or_insert_with(Vec::new);
+                        job_state
+                            .logs
+                            .get_mut(&log_hostname)
+                            .unwrap()
+                            .append(&mut logs);
+                        state.jobs.insert(job_id.clone(), job_state);
                     } else {
                         error!("missing state for job {job_id}!?");
                     }

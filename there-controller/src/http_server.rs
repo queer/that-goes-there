@@ -2,33 +2,23 @@ use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use axum::extract::{Json, Query, State};
+use axum::extract::{Json, Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::Router;
 use color_eyre::eyre::Result;
-use libthere::ipc::http::JobStartRequest;
-use libthere::plan::host::HostConfig;
-use libthere::plan::Plan;
+use libthere::ipc::http::{JobStartRequest, JobState, JobStatus};
+use libthere::log::*;
 use nanoid::nanoid;
 use quick_cache::sync::Cache;
 use serde::{Deserialize, Serialize};
 use thrussh_keys::PublicKeyBase64;
 use tokio::sync::Mutex;
 
-use crate::executor::LogEntry;
-
 #[derive(Debug)]
 pub struct ServerState {
     pub jobs: Cache<String, JobState>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct JobState {
-    pub logs: HashMap<String, Vec<LogEntry>>,
-    pub plan: Plan,
-    pub hosts: HostConfig,
 }
 
 #[tracing::instrument]
@@ -41,7 +31,7 @@ pub async fn run_server(port: u16) -> Result<()> {
         .route("/", get(root))
         .route("/api/bootstrap", get(bootstrap))
         .route("/api/plan/run", post(run_plan))
-        .route("/api/plan/:job_id/logs", get(get_logs))
+        .route("/api/plan/:job_id/status", get(get_job_status))
         .with_state(state);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
@@ -67,6 +57,7 @@ async fn run_plan(
         logs: HashMap::new(),
         plan: body.plan,
         hosts: body.hosts,
+        status: JobStatus::Running,
     };
 
     let job_accessible_state = state.clone();
@@ -75,30 +66,48 @@ async fn run_plan(
 
     let job_id_clone = job_id.clone();
     tokio::spawn(async move {
-        crate::executor::apply_plan(
-            job_id_clone,
-            job_accessible_state,
+        match crate::executor::apply_plan(
+            &job_id_clone,
+            &job_accessible_state,
             job_accessible_body.plan,
             job_accessible_body.hosts,
         )
         .await
-        .unwrap();
+        {
+            Ok(_) => {
+                let state = job_accessible_state.lock().await;
+                if let Some(mut job_state) = state.jobs.get(&job_id_clone.clone()) {
+                    job_state.status = JobStatus::Completed;
+                    state.jobs.insert(job_id_clone.clone(), job_state);
+                } else {
+                    error!("job {job_id_clone} disappeared from state");
+                }
+            }
+            Err(e) => {
+                error!("error applying plan {job_id_clone}: {e}");
+                let state = job_accessible_state.lock().await;
+                if let Some(mut job_state) = state.jobs.get(&job_id_clone.clone()) {
+                    job_state.status = JobStatus::Failed;
+                    state.jobs.insert(job_id_clone.clone(), job_state);
+                } else {
+                    error!("job {job_id_clone} disappeared from state");
+                }
+            }
+        }
     });
 
     (StatusCode::OK, job_id)
 }
 
 #[tracing::instrument]
-async fn get_logs(
+async fn get_job_status(
     State(state): State<Arc<Mutex<ServerState>>>,
-    Query(job_id): Query<String>,
+    Path(job_id): Path<String>,
 ) -> impl IntoResponse {
     let state = state.lock().await;
     let job_state = state.jobs.get(&job_id).unwrap();
-    (
-        StatusCode::OK,
-        serde_json::to_string(&job_state.logs).unwrap(),
-    )
+
+    (StatusCode::OK, serde_json::to_string(&job_state).unwrap())
 }
 
 #[derive(Serialize, Deserialize, Debug)]

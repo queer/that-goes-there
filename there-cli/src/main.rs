@@ -77,6 +77,12 @@ async fn main() -> Result<()> {
                                 .long("ssh-key"),
                         )
                         .arg(Arg::new("ssh-key-passphrase").help("Path to the SSH key passphrase file.").short('p').long("ssh-key-passphrase"))
+                        .arg(
+                            Arg::new("controller")
+                                .help("Controller to do remote execution with.")
+                                .short('c')
+                                .long("controller"),
+                        )
                         ,
                 )
         )
