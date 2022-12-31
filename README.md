@@ -1,12 +1,22 @@
 # that goes there
 
-(hopefully) fast configuration management.
+*that goes there* (hereafter "there" or `there`) is:
 
-rust: stable (1.65 min tested version / MSRV)
+- A library for general planning and execution of tasks on local and remote
+  hosts.
+  - Tasks are compiled down to `sh(1)`-compatible commands for execution.
+  - Non-raw-command tasks attempt to validate prerequists before execution.
+- A CLI for applying plans via:
+  - Local execution
+  - Remote SSH
+  - Agent-controller SSH
+- An agent-controller pair for remote SSH execution.
+
+Minimum supported Rust version: `1.66`
 
 ## setup
 
-install [pre-commit](https://pre-commit.com/).
+Install [pre-commit](https://pre-commit.com/).
 
 ```bash
 pre-commit install
@@ -14,14 +24,14 @@ pre-commit autoupdate
 cargo install cargo-audit
 ```
 
-## but we already have ansible/salt/chef/puppet/etc
+## usage
 
-needed a config management tool that could use ssh and agents as transports
-dynamically. also wanted to experiment with some ui/ux stuff. also it's fun!
+kinda undocumented for now. refer to `test/*.yaml` for some plan/hostfile
+examples.
 
 ## todo
 
-- pretty tui with [makeup](https://crates.io/crates/makeup) for log streaming
+- Pretty tui with [makeup](https://crates.io/crates/makeup) for log streaming
 
 ## show me something pretty
 
