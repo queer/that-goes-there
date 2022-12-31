@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use color_eyre::eyre;
 use color_eyre::eyre::Result;
-use libthere::log::*;
+use there::log::*;
 use tracing_subscriber::util::SubscriberInitExt;
 
 fn main() -> Result<()> {

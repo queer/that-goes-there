@@ -9,7 +9,7 @@ use crate::commands::Command;
 
 mod commands;
 
-use libthere::log::*;
+use there::log::*;
 
 #[tokio::main]
 #[tracing::instrument]

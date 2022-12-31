@@ -1,7 +1,7 @@
 #![allow(unused)]
 #![forbid(unsafe_code)]
 
-//! # libthere
+//! # there
 //!
 //! The shared code for that-goes-there. Encapsulates abstractions for things
 //! like:

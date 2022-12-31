@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-libthere = { path = "../libthere" }
+there = { path = "../libthere" }
 
 axum = "0.6.1"
 color-eyre = { version = "0.6.2", features = ["issue-url"] }

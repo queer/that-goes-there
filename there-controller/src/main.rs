@@ -1,8 +1,8 @@
 #![forbid(unsafe_code)]
 
 use color_eyre::eyre::Result;
-use libthere::log::*;
 use network_interface::{NetworkInterface, NetworkInterfaceConfig};
+use there::log::*;
 use tracing_subscriber::util::SubscriberInitExt;
 
 mod executor;

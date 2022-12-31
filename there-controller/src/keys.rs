@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use color_eyre::eyre::Result;
-use libthere::log::*;
+use there::log::*;
 use tokio::fs::{self, File};
 use tokio::io::AsyncWriteExt;
 

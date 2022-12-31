@@ -3,11 +3,11 @@ use std::sync::Arc;
 use color_eyre::eyre::Result;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
-use libthere::executor::{ssh, Executor, LogSource, PartialLogStream};
-use libthere::ipc::http::LogEntry;
-use libthere::log::*;
-use libthere::plan::host::{Host, HostConfig};
-use libthere::plan::Plan;
+use there::executor::{ssh, Executor, LogSource, PartialLogStream};
+use there::ipc::http::LogEntry;
+use there::log::*;
+use there::plan::host::{Host, HostConfig};
+use there::plan::Plan;
 use tokio::sync::{mpsc, Mutex};
 
 use crate::http_server::ServerState;
@@ -97,7 +97,7 @@ async fn do_apply(
     state: Arc<Mutex<ServerState>>,
 ) -> Result<(String, u32)> {
     let (tx, rx) = mpsc::channel(1024);
-    let mut log_source = libthere::executor::simple::SimpleLogSource::new(rx);
+    let mut log_source = there::executor::simple::SimpleLogSource::new(rx);
     let log_hostname = hostname.clone();
     let ssh_hostname = hostname.clone();
     let join_handle = tokio::task::spawn(async move {

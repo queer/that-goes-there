@@ -7,10 +7,10 @@ use async_trait::async_trait;
 use clap::ArgMatches;
 use color_eyre::eyre::Result;
 use futures::stream::FuturesUnordered;
-use libthere::executor::{simple, ssh, Executor, LogSource, PartialLogStream};
-use libthere::ipc::http::{JobState, JobStatus};
-use libthere::plan::host::{Host, HostConfig};
-use libthere::{log::*, plan};
+use there::executor::{simple, ssh, Executor, LogSource, PartialLogStream};
+use there::ipc::http::{JobState, JobStatus};
+use there::plan::host::{Host, HostConfig};
+use there::{log::*, plan};
 use tokio::fs;
 use tokio::sync::{mpsc, Mutex};
 use tokio_stream::StreamExt;
@@ -48,7 +48,7 @@ impl PlanCommand {
         let hosts = self.read_hosts_config(hosts_file).await?;
 
         let plan = fs::read_to_string(file).await?;
-        let task_set: libthere::plan::TaskSet = serde_yaml::from_str(plan.as_str())?;
+        let task_set: there::plan::TaskSet = serde_yaml::from_str(plan.as_str())?;
         task_set.plan().await?;
         info!("plan is valid.");
         println!("* plan is valid.");
@@ -90,7 +90,7 @@ impl PlanCommand {
     ) -> Result<()> {
         let file = self.read_argument_with_validator(matches, "file", &mut |_| Ok(()))?;
         let plan = fs::read_to_string(file).await?;
-        let task_set: libthere::plan::TaskSet = serde_yaml::from_str(plan.as_str())?;
+        let task_set: there::plan::TaskSet = serde_yaml::from_str(plan.as_str())?;
         let hosts_file = self.read_argument_with_validator(matches, "hosts", &mut |_| Ok(()))?;
         let hosts_file = Path::new(&hosts_file);
         let hosts = self.read_hosts_config(hosts_file).await?;
@@ -248,7 +248,7 @@ impl PlanCommand {
         matches: &ArgMatches,
     ) -> Result<(String, u32)> {
         let (tx, rx) = mpsc::channel(1024);
-        let mut log_source = libthere::executor::simple::SimpleLogSource::new(rx);
+        let mut log_source = there::executor::simple::SimpleLogSource::new(rx);
         let log_hostname = hostname.clone();
         let ssh_hostname = hostname.clone();
         let join_handle = tokio::task::spawn(async move {
