@@ -15,6 +15,36 @@
 
 Minimum supported Rust version: `1.66`
 
+## features
+
+### Library:
+
+- Tokio-based, fully-async
+- Pluggable execution backends
+  - [x] Local
+  - [x] SSH
+  - [ ] Implement `Executor` yourself!
+- Async log streaming
+- Pluggable log streaming backends
+  - [x] In-memory
+  - [ ] Implement `LogSource`/`LogSink` yourself!
+- Agent-controller shared IPC structs
+- Plan validation
+  - Compile tasks down to `sh(1)`-compatible commands
+- Host files + host groups
+- Fully instrumented with `tracing::instrument`
+  - `tracing`-based logging that can be consumed with `tracing-subscriber`
+  - `color_eyre`-based error reporting
+    - Used to share error implementation between CLI/agent/controller
+
+### CLI:
+
+- Log streaming by default
+  - [x] Local execution
+  - [x] SSH execution
+  - [x] Agent-controller execution
+- Plan validation
+
 ## setup
 
 Install [pre-commit](https://pre-commit.com/).
