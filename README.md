@@ -62,7 +62,9 @@ examples.
 
 ## todo
 
-- Pretty tui with [makeup](https://crates.io/crates/makeup) for log streaming
+- [ ] Pretty tui with [makeup](https://crates.io/crates/makeup) for log streaming
+- [ ] Concurrency guards to ensure that certain tasks have to run across all
+      hosts at the same time.
 
 ## show me something pretty
 
