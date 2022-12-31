@@ -1,3 +1,5 @@
+//! SSH command executor for remote hosts.
+
 use std::sync::Arc;
 
 use crate::executor::simple::{SimpleLogSink, SimpleLogTx};
@@ -10,6 +12,9 @@ use color_eyre::eyre::Result;
 use derive_getters::Getters;
 use tokio::sync::Mutex;
 
+/// An SSH command executor for remote hosts. This executor will execute tasks
+/// on the remote host by connecting to it via SSH, and executing the commands
+/// in the [`Plan`] by compiling them to `sh(1)`-compatible commands.
 #[derive(Getters, Debug)]
 pub struct SshExecutor<'a> {
     #[getter(skip)]
@@ -21,6 +26,8 @@ pub struct SshExecutor<'a> {
 }
 
 impl<'a> SshExecutor<'a> {
+    /// Create a new SSH executor for the given host. SSH key is required, SSH
+    /// key passphrase is optional.
     #[tracing::instrument(skip(ssh_key, ssh_key_passphrase))]
     pub fn new(
         host: &'a Host,
@@ -43,6 +50,7 @@ impl<'a> SshExecutor<'a> {
         })
     }
 
+    /// Create a new SSH executor for the given host, using an existing keypair.
     #[tracing::instrument(skip(keypair))]
     pub fn new_with_existing_key(
         host: &'a Host,
@@ -264,6 +272,7 @@ impl<'a> Executor<'a, SshExecutionContext<'a>> for SshExecutor<'a> {
     }
 }
 
+/// An execution context for SSH.
 #[derive(Getters, Debug, Clone)]
 pub struct SshExecutionContext<'a> {
     name: &'a str,
@@ -271,6 +280,7 @@ pub struct SshExecutionContext<'a> {
 }
 
 impl<'a> SshExecutionContext<'a> {
+    /// Create a new SSH execution context.
     pub fn new(name: &'a str, plan: &'a plan::Plan) -> Self {
         Self { name, plan }
     }

@@ -1,3 +1,6 @@
+//! A visitor for a [`Task`] in a [`TaskSet`]. Task visitors are used to do
+//! things like compile the [`Plan`] for a `TaskSet`.
+
 use std::path::Path;
 
 use async_trait::async_trait;
@@ -10,8 +13,10 @@ use crate::log::*;
 /// A visitor for a [`Task`] in a [`TaskSet`]. Task visitors are used to do
 /// things like compile the [`Plan`] for a `TaskSet`.
 pub trait TaskVisitor: Send + std::fmt::Debug {
+    /// The output type of this visitor.
     type Out;
 
+    /// Visit the given task. This is used for things like compiling a `Plan`.
     fn visit_task(&mut self, task: &Task) -> Result<Self::Out>;
 }
 
@@ -24,6 +29,7 @@ pub struct PlanningTaskVisitor<'a> {
 }
 
 impl<'a> PlanningTaskVisitor<'a> {
+    /// Create a new visitor.
     pub fn new(name: &'a str) -> Self {
         Self { name, plan: vec![] }
     }

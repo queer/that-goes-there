@@ -1,3 +1,5 @@
+//! Local command executor.
+
 use std::cell::RefCell;
 use std::sync::Arc;
 use std::time::Duration;
@@ -13,7 +15,9 @@ use super::{ExecutionContext, Executor, LogSink, LogSource, Logs, PartialLogStre
 use crate::log::*;
 use crate::plan::{Ensure, Plan, PlannedTask, Task};
 
+/// An mpsc channel for in-memory logging.
 pub type SimpleLogTx = mpsc::Sender<PartialLogStream>;
+/// An mpsc channel for in-memory logging.
 pub type SimpleLogRx = mpsc::Receiver<PartialLogStream>;
 
 /// A simple [`Executor`] implementation that executes [`Task`]s on
@@ -26,6 +30,7 @@ pub struct SimpleExecutor<'a> {
 }
 
 impl<'a> SimpleExecutor<'a> {
+    /// Create a new [`SimpleExecutor`].
     pub fn new(tx: &'a SimpleLogTx) -> Self {
         Self {
             log_sink: Arc::new(Mutex::new(SimpleLogSink::new(tx))),
@@ -185,6 +190,8 @@ impl<'a> Executor<'a, SimpleExecutionContext<'a>> for SimpleExecutor<'a> {
     }
 }
 
+/// A basic [`ExecutionContext`] implementation that holds a reference to the
+/// current [`Plan`] and the name of the execution.
 #[derive(Getters, Debug, Clone)]
 pub struct SimpleExecutionContext<'a> {
     name: &'a str,
@@ -192,6 +199,7 @@ pub struct SimpleExecutionContext<'a> {
 }
 
 impl<'a> SimpleExecutionContext<'a> {
+    /// Create a new [`SimpleExecutionContext`].
     pub fn new(name: &'a str, plan: &'a Plan) -> Self {
         Self { name, plan }
     }
@@ -216,6 +224,7 @@ pub struct SimpleLogSink<'a> {
 }
 
 impl<'a> SimpleLogSink<'a> {
+    /// Create a new [`SimpleLogSink`].
     pub fn new(tx: &'a SimpleLogTx) -> Self {
         Self { tx }
     }
@@ -243,6 +252,7 @@ pub struct SimpleLogSource {
 }
 
 impl SimpleLogSource {
+    /// Create a new [`SimpleLogSource`].
     pub fn new(rx: SimpleLogRx) -> Self {
         Self { rx, ended: false }
     }

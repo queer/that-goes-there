@@ -17,6 +17,7 @@ use crate::plan::Plan;
 pub mod simple;
 pub mod ssh;
 
+/// A set of logs.
 pub type Logs = Vec<String>;
 
 /// A partial log stream. Used for controlling how logs are streamed through
@@ -37,8 +38,12 @@ pub enum PartialLogStream {
 pub trait Executor<'a, T: ExecutionContext + std::fmt::Debug = simple::SimpleExecutionContext<'a>>:
     std::fmt::Debug + Send + Sync
 {
+    /// Execute the [`Plan`] in the context on the hosts that this executor
+    /// knows about. This may be a single host, or multiple hosts; the way that
+    /// hosts are assigned to executors is entirely up to the caller.
     async fn execute(&mut self, ctx: Mutex<&'a mut T>) -> Result<()>;
 
+    /// Get the number of tasks completed by this executor.
     fn tasks_completed(&self) -> Result<u32>;
 }
 

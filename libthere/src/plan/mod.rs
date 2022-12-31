@@ -1,3 +1,5 @@
+//! Create and validate plans for future execution.
+
 use std::marker::PhantomData;
 use std::sync::Arc;
 
@@ -26,6 +28,7 @@ pub struct TaskSet {
 }
 
 impl TaskSet {
+    /// Create a new `TaskSet` with the given name.
     pub fn new<S: Into<String>>(name: S) -> Self {
         Self {
             name: name.into(),
@@ -33,6 +36,7 @@ impl TaskSet {
         }
     }
 
+    /// Add a task to this `TaskSet`.
     #[tracing::instrument]
     pub fn add_task(&mut self, task: Task) {
         debug!("task set: added task to plan: {}", &task.name());
@@ -53,6 +57,8 @@ impl TaskSet {
     }
 }
 
+/// A `Task` is a potential command that can be executed. `Task`s are compiled
+/// into `sh(1)`-compatible commands prior to execution on a remote host.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum Task {
@@ -77,11 +83,13 @@ pub enum Task {
 }
 
 impl Task {
+    /// Accept a [`TaskVisitor`] to visit this `Task`.
     #[tracing::instrument]
     pub async fn accept(&mut self, visitor: &mut dyn visitor::TaskVisitor<Out = ()>) -> Result<()> {
         visitor.visit_task(self)
     }
 
+    /// Extract the name of this task from the `Task` enum.
     pub fn name(&self) -> &str {
         match self {
             Task::Command { name, .. } => name,
@@ -91,6 +99,7 @@ impl Task {
         }
     }
 
+    /// Extract the hosts that this task applies to from the `Task` enum.
     pub fn hosts(&self) -> Vec<String> {
         match self {
             Task::Command { hosts, .. } => hosts.clone(),
@@ -110,6 +119,7 @@ pub struct Plan {
 }
 
 impl Plan {
+    /// Create a new `Plan` with the given name and blueprint.
     pub fn new(name: String, blueprint: Vec<PlannedTask>) -> Self {
         Self { name, blueprint }
     }
@@ -155,6 +165,8 @@ pub struct PlannedTask {
 }
 
 impl PlannedTask {
+    /// Create a new `PlannedTask` from a shell command string
+    /// (ex. `echo "hi"`).
     #[tracing::instrument]
     pub fn from_shell_command<S: Into<String> + std::fmt::Debug>(
         name: S,
