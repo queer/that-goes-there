@@ -4,6 +4,7 @@
 
 - A library for general planning and execution of tasks on local and remote
   hosts.
+  - [crates.io](https://crates.io/crates/there)
   - Tasks are compiled down to `sh(1)`-compatible commands for execution.
   - Non-raw-command tasks attempt to validate prerequists before execution.
 - A CLI for applying plans via:
