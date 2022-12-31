@@ -43,6 +43,7 @@ impl<'a> SshExecutor<'a> {
         })
     }
 
+    #[tracing::instrument(skip(keypair))]
     pub fn new_with_existing_key(
         host: &'a Host,
         hostname: &'a str,
