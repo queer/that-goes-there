@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 there = { path = "../libthere" }
 
-async-trait = "0.1.60"
+async-trait = "0.1.61"
 clap = { version = "4.0.32", features = ["cargo"] }
 color-eyre = { version = "0.6.2", features = ["issue-url"] }
 dialoguer = { version = "0.10.2", features = ["completion", "fuzzy-matcher", "fuzzy-select", "history"] }
