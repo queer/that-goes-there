@@ -25,4 +25,4 @@ tokio = { version = "1.24.2", features = ["full"] }
 tokio-stream = "0.1.11"
 tokio-util = { version = "0.7.4", features = ["codec"] }
 tracing = { version = "0.1.37", features = ["async-await"] }
-which = "4.3.0"
+which = "4.4.0"
