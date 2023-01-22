@@ -12,7 +12,7 @@ categories = ["asynchronous", "concurrency", "network-programming"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-async-trait = "0.1.61"
+async-trait = "0.1.62"
 color-eyre = { version = "0.6.2", features = ["issue-url"] }
 derive-getters = "0.2.0"
 futures = "0.3.25"
