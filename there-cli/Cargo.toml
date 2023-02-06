@@ -26,4 +26,4 @@ tokio-stream = "0.1.11"
 tokio-util = "0.7.4"
 tracing-subscriber = { version = "0.3.16", features = ["json", "serde", "serde_json", "time", "tracing", "env-filter", "local-time"] }
 tracing = { version = "0.1.37", features = ["async-await"] }
-serde_json = "1.0.91"
+serde_json = "1.0.92"
