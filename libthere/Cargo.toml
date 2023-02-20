@@ -22,7 +22,7 @@ tarpc = { version = "0.31.0", features = ["full"] }
 thrussh = "0.33.5"
 thrussh-keys = "0.21.0"
 tokio = { version = "1.25.0", features = ["full"] }
-tokio-stream = "0.1.11"
+tokio-stream = "0.1.12"
 tokio-util = { version = "0.7.7", features = ["codec"] }
 tracing = { version = "0.1.37", features = ["async-await"] }
 which = "4.4.0"

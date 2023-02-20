@@ -22,7 +22,7 @@ thrussh = { version = "0.33.5", features = ["openssl"] }
 thrussh-keys = { version = "0.21.0", features = ["openssl"] }
 time = { version = "0.3.19", features = ["macros"] }
 tokio = { version = "1.25.0", features = ["full"] }
-tokio-stream = "0.1.11"
+tokio-stream = "0.1.12"
 tokio-util = "0.7.7"
 tracing-subscriber = { version = "0.3.16", features = ["json", "serde", "serde_json", "time", "tracing", "env-filter", "local-time"] }
 tracing = { version = "0.1.37", features = ["async-await"] }
