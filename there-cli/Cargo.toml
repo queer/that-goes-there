@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 there = { path = "../libthere" }
 
-async-trait = "0.1.64"
+async-trait = "0.1.66"
 clap = { version = "4.1.8", features = ["cargo"] }
 color-eyre = { version = "0.6.2", features = ["issue-url"] }
 dialoguer = { version = "0.10.3", features = ["completion", "fuzzy-matcher", "fuzzy-select", "history"] }
@@ -17,7 +17,7 @@ futures = "0.3.26"
 regex = "1.7.1"
 reqwest = { version = "0.11.14", features = ["json"] }
 serde_yaml = "0.9.19"
-thiserror = "1.0.38"
+thiserror = "1.0.39"
 thrussh = { version = "0.33.5", features = ["openssl"] }
 thrussh-keys = { version = "0.21.0", features = ["openssl"] }
 time = { version = "0.3.20", features = ["macros"] }
@@ -26,4 +26,4 @@ tokio-stream = "0.1.12"
 tokio-util = "0.7.7"
 tracing-subscriber = { version = "0.3.16", features = ["json", "serde", "serde_json", "time", "tracing", "env-filter", "local-time"] }
 tracing = { version = "0.1.37", features = ["async-await"] }
-serde_json = "1.0.93"
+serde_json = "1.0.94"
