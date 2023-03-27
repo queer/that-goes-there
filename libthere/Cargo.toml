@@ -18,7 +18,7 @@ derive-getters = "0.2.0"
 futures = "0.3.27"
 serde = { version = "1.0.158", features = ["derive"] }
 shell-words = "1.1.0"
-tarpc = { version = "0.31.0", features = ["full"] }
+tarpc = { version = "0.32.0", features = ["full"] }
 thrussh = "0.33.5"
 thrussh-keys = "0.21.0"
 tokio = { version = "1.26.0", features = ["full"] }
