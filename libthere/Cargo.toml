@@ -16,7 +16,7 @@ async-trait = "0.1.68"
 color-eyre = { version = "0.6.2", features = ["issue-url"] }
 derive-getters = "0.2.0"
 futures = "0.3.27"
-serde = { version = "1.0.158", features = ["derive"] }
+serde = { version = "1.0.159", features = ["derive"] }
 shell-words = "1.1.0"
 tarpc = { version = "0.32.0", features = ["full"] }
 thrussh = "0.33.5"
