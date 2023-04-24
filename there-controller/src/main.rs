@@ -34,7 +34,7 @@ async fn main() -> Result<()> {
     println!("* token for agent connections: {token}");
     println!("* agents can bootstrap via:");
     for iface in NetworkInterface::show()? {
-        if let Some(addr) = iface.addr {
+        if let Some(addr) = iface.addr.get(0) {
             if addr.ip().is_loopback() {
                 continue;
             }

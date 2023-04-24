@@ -12,8 +12,8 @@ axum = "0.6.16"
 color-eyre = { version = "0.6.2", features = ["issue-url"] }
 futures = "0.3.28"
 rand = "0.8.5"
-thrussh = { version = "0.33.5", features = ["openssl"] }
-thrussh-keys = { version = "0.21.0", features = ["openssl"] }
+thrussh = { version = "0.34.0", features = ["openssl"] }
+thrussh-keys = { version = "0.22.0", features = ["openssl"] }
 tokio = { version = "1.27.0", features = ["full"] }
 network-interface = "1.0.0"
 serde = { version = "1.0.160", features = ["derive"] }
