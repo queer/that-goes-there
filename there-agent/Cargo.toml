@@ -11,4 +11,4 @@ directories = "5.0.0"
 there = { path = "../libthere" }
 reqwest = { version = "0.11.16", features = ["blocking"] }
 time = { version = "0.3.20", features = ["macros"] }
-tracing-subscriber = { version = "0.3.16", features = ["json", "time"] }
+tracing-subscriber = { version = "0.3.17", features = ["json", "time"] }
