@@ -21,7 +21,7 @@ thiserror = "1.0.40"
 thrussh = { version = "0.34.0", features = ["openssl"] }
 thrussh-keys = { version = "0.22.0", features = ["openssl"] }
 time = { version = "0.3.20", features = ["macros"] }
-tokio = { version = "1.27.0", features = ["full"] }
+tokio = { version = "1.28.0", features = ["full"] }
 tokio-stream = "0.1.12"
 tokio-util = "0.7.7"
 tracing-subscriber = { version = "0.3.16", features = ["json", "serde", "serde_json", "time", "tracing", "env-filter", "local-time"] }
