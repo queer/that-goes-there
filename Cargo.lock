@@ -1962,9 +1962,9 @@ dependencies = [
 
 [[package]]
 name = "thrussh-keys"
-version = "0.22.0"
+version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5fc88c8e79ffb99b6532650b93a007a3e9446ea6f7c4e8f04b8ce33951138766"
+checksum = "c43d59b13e4c08db0e379bced99bda596ac5ed33651d919bf3916d34ad4259bb"
 dependencies = [
  "aes",
  "bcrypt-pbkdf",
