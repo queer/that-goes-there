@@ -13,7 +13,7 @@ color-eyre = { version = "0.6.2", features = ["issue-url"] }
 futures = "0.3.28"
 rand = "0.8.5"
 thrussh = { version = "0.34.0", features = ["openssl"] }
-thrussh-keys = { version = "0.22.0", features = ["openssl"] }
+thrussh-keys = { version = "0.22.1", features = ["openssl"] }
 tokio = { version = "1.28.1", features = ["full"] }
 network-interface = "1.0.1"
 serde = { version = "1.0.163", features = ["derive"] }
