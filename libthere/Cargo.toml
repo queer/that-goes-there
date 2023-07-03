@@ -20,7 +20,7 @@ serde = { version = "1.0.165", features = ["derive"] }
 shell-words = "1.1.0"
 thrussh = "0.34.0"
 thrussh-keys = "0.22.1"
-tokio = { version = "1.29.0", features = ["full"] }
+tokio = { version = "1.29.1", features = ["full"] }
 tokio-stream = "0.1.14"
 tokio-util = { version = "0.7.8", features = ["codec"] }
 tracing = { version = "0.1.38", features = ["async-await"] }
