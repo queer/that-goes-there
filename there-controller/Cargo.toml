@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 there = { path = "../libthere" }
 
-axum = "0.6.19"
+axum = "0.6.20"
 color-eyre = { version = "0.6.2", features = ["issue-url"] }
 futures = "0.3.28"
 rand = "0.8.5"
