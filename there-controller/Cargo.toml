@@ -23,6 +23,6 @@ nanoid-dictionary = "0.4.3"
 serde_json = "1.0.104"
 hyper = "0.14.27"
 tracing = "0.1.38"
-thiserror = "1.0.44"
+thiserror = "1.0.47"
 tracing-subscriber = { version = "0.3.17", features = ["json", "time"] }
 time = { version = "0.3.24", features = ["macros", "formatting"] }
