@@ -20,7 +20,7 @@ serde_yaml = "0.9.25"
 thiserror = "1.0.47"
 thrussh = { version = "0.34.0", features = ["openssl"] }
 thrussh-keys = { version = "0.22.1", features = ["openssl"] }
-time = { version = "0.3.25", features = ["macros"] }
+time = { version = "0.3.27", features = ["macros"] }
 tokio = { version = "1.32.0", features = ["full"] }
 tokio-stream = "0.1.14"
 tokio-util = "0.7.8"
