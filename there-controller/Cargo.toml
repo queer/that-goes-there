@@ -15,7 +15,7 @@ rand = "0.8.5"
 thrussh = { version = "0.34.0", features = ["openssl"] }
 thrussh-keys = { version = "0.22.1", features = ["openssl"] }
 tokio = { version = "1.32.0", features = ["full"] }
-network-interface = "1.0.2"
+network-interface = "1.0.3"
 serde = { version = "1.0.185", features = ["derive"] }
 quick_cache = "0.3.0"
 nanoid = "0.4.0"
