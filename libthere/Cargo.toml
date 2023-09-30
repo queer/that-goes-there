@@ -22,6 +22,6 @@ thrussh = "0.34.0"
 thrussh-keys = "0.22.1"
 tokio = { version = "1.32.0", features = ["full"] }
 tokio-stream = "0.1.14"
-tokio-util = { version = "0.7.8", features = ["codec"] }
+tokio-util = { version = "0.7.9", features = ["codec"] }
 tracing = { version = "0.1.38", features = ["async-await"] }
 which = "4.4.2"
