@@ -9,6 +9,6 @@ edition = "2021"
 color-eyre = { version = "0.6.2", features = ["issue-url"] }
 directories = "5.0.1"
 there = { path = "../libthere" }
-reqwest = { version = "0.11.19", features = ["blocking"] }
+reqwest = { version = "0.11.20", features = ["blocking"] }
 time = { version = "0.3.28", features = ["macros"] }
 tracing-subscriber = { version = "0.3.17", features = ["json", "time"] }
