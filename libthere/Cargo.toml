@@ -15,7 +15,7 @@ categories = ["asynchronous", "concurrency", "network-programming"]
 async-trait = "0.1.74"
 color-eyre = { version = "0.6.2", features = ["issue-url"] }
 derive-getters = "0.3.0"
-futures = "0.3.28"
+futures = "0.3.29"
 serde = { version = "1.0.190", features = ["derive"] }
 shell-words = "1.1.0"
 thrussh = "0.34.0"
