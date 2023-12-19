@@ -25,4 +25,4 @@ hyper = "0.14.27"
 tracing = "0.1.38"
 thiserror = "1.0.50"
 tracing-subscriber = { version = "0.3.17", features = ["json", "time"] }
-time = { version = "0.3.29", features = ["macros", "formatting"] }
+time = { version = "0.3.31", features = ["macros", "formatting"] }
