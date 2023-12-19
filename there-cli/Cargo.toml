@@ -13,7 +13,7 @@ clap = { version = "4.4.11", features = ["cargo"] }
 color-eyre = { version = "0.6.2", features = ["issue-url"] }
 dialoguer = { version = "0.11.0", features = ["completion", "fuzzy-matcher", "fuzzy-select", "history"] }
 derive-getters = "0.3.0"
-futures = "0.3.28"
+futures = "0.3.29"
 regex = "1.10.2"
 reqwest = { version = "0.11.20", features = ["json"] }
 serde_yaml = "0.9.25"

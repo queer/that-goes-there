@@ -10,7 +10,7 @@ there = { path = "../libthere" }
 
 axum = "0.6.20"
 color-eyre = { version = "0.6.2", features = ["issue-url"] }
-futures = "0.3.28"
+futures = "0.3.29"
 rand = "0.8.5"
 thrussh = { version = "0.34.0", features = ["openssl"] }
 thrussh-keys = { version = "0.22.1", features = ["openssl"] }
