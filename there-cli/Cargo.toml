@@ -16,7 +16,7 @@ derive-getters = "0.3.0"
 futures = "0.3.28"
 regex = "1.10.2"
 reqwest = { version = "0.11.20", features = ["json"] }
-serde_yaml = "0.9.25"
+serde_yaml = "0.9.27"
 thiserror = "1.0.50"
 thrussh = { version = "0.34.0", features = ["openssl"] }
 thrussh-keys = { version = "0.22.1", features = ["openssl"] }
